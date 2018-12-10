@@ -112,3 +112,4 @@ ENV/
 
 # dataset files
 *.csv
+*.sql
