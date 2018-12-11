@@ -199,7 +199,7 @@ class DataLoader:
             assert not self.file.find('.csv') == -1
         if self.use_save:
             assert self.fn_to_save
-        if self.analyzer and not self.analyzer == 'mecab' and not self.analyzer == 'char':
+        if self.analyzer and not self.analyzer == 'char':
             assert self.jvm_path
 
         if self.analyzer == 'hannanum':
