@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class TextCNN:
 
-    def __init__(self, s, n_big_classes=6, n_sub_classes=38, batch_size=256, epochs=101,
+    def __init__(self, s, n_big_classes=6, n_sub_classes=38, batch_size=128, epochs=101,
                  vocab_size=122351 + 1, sequence_length=400, title_length=100, n_dims=300, seed=1337, optimizer='adam',
                  kernel_sizes=(10, 9, 7, 5, 3), n_filters=256, fc_unit=1024,
                  lr=8e-4, lr_lower_boundary=2e-5, lr_decay=.95, l2_reg=5e-4, th=1e-6, grad_clip=5.,
@@ -102,7 +102,7 @@ class TextCNN:
         self.p_sub_cat_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=sub_cat,
                                                                                         labels=self.y_sub))
 
-        self.losses = self.p_big_cat_loss + self.p_sub_cat_loss
+        self.losses = 1.0 * self.p_big_cat_loss + 1.2 * self.p_sub_cat_loss
         self.score = (1.0 * self.acc_big_cat + 1.2 * self.acc_sub_cat) / 2.
 
         # Optimizer
@@ -201,13 +201,13 @@ class TextCNN:
         with tf.variable_scope('sentence_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.sent_embeddings[i], self.x_sent)
-                embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
                 sent_embeds.append(embed)
 
         with tf.variable_scope('title_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.title_embeddings[i], self.x_title)
-                embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
                 title_embeds.append(embed)
 
         concat_pool = []
@@ -258,7 +258,7 @@ class TextCNN:
                 name='fc1'
             )
             x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
-            x = tf.layers.dropout(x, self.do_rate)
+            # x = tf.layers.dropout(x, self.do_rate)
 
             concat_pool.append(x)
 
@@ -309,12 +309,12 @@ class TextCNN:
                 name='fc1'
             )
             x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
-            x = tf.layers.dropout(x, self.do_rate)
+            # x = tf.layers.dropout(x, self.do_rate)
 
             concat_pool.append(x)
 
         x = tf.concat(concat_pool, axis=-1)  # (batch, 3 * kernel_sizes, 256)
-        # x = tf.layers.dropout(x, self.do_rate)
+        x = tf.layers.dropout(x, self.do_rate)
 
         with tf.variable_scope("outputs"):
             x = tf.layers.dense(
