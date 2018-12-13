@@ -54,7 +54,7 @@ network_arg.add_argument('--kernel_size', type=list, default=[10, 9, 7, 5, 3], h
 # For Char2Vec, [10, 9, 7, 5, 3] is recommended
 network_arg.add_argument('--filter_size', type=int, default=256, help='conv1d filter size')
 network_arg.add_argument('--fc_unit', type=int, default=1024)
-network_arg.add_argument('--drop_out', type=float, default=.7, help='dropout rate')
+network_arg.add_argument('--drop_out', type=float, default=.5, help='dropout rate')
 network_arg.add_argument('--use_leaky_relu', type=bool, default=False)
 network_arg.add_argument('--act_threshold', type=float, default=1e-6, help='used at ThresholdReLU')
 network_arg.add_argument('--score_function', type=str, default='softmax', choices=['tanh', 'sigmoid', 'softmax'])

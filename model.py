@@ -203,13 +203,15 @@ class TextCNN:
         with tf.variable_scope('sentence_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.sent_embeddings[i], self.x_sent)
-                embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                embed = tf.layers.dropout(embed, self.do_rate)
                 sent_embeds.append(embed)
 
         with tf.variable_scope('title_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.title_embeddings[i], self.x_title)
-                embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                embed = tf.layers.dropout(embed, self.do_rate)
                 title_embeds.append(embed)
 
         concat_pool = []
