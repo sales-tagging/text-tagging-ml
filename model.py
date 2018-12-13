@@ -104,7 +104,7 @@ class TextCNN:
         self.p_sub_cat_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=sub_cat,
                                                                                         labels=self.y_sub))
 
-        self.losses = 1.0 * self.p_big_cat_loss + 1.2 * self.p_sub_cat_loss
+        self.losses = self.p_big_cat_loss + self.p_sub_cat_loss
         self.score = (1.0 * self.acc_big_cat + 1.2 * self.acc_sub_cat) / 2.
 
         # Optimizer
@@ -203,13 +203,13 @@ class TextCNN:
         with tf.variable_scope('sentence_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.sent_embeddings[i], self.x_sent)
-                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
                 sent_embeds.append(embed)
 
         with tf.variable_scope('title_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.title_embeddings[i], self.x_title)
-                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
                 title_embeds.append(embed)
 
         concat_pool = []
