@@ -83,8 +83,8 @@ class TextCNN:
                                      shape=[None, self.sequence_length], name='x-sentence')
         self.x_title = tf.placeholder(tf.uint8 if self.w2v_embeds == 'c2v' else tf.int32,
                                       shape=[None, self.title_length], name='x-title')
-        self.y_big = tf.placeholder(tf.uint8, shape=[None, self.n_big_classes], name='y-label-big')
-        self.y_sub = tf.placeholder(tf.uint8, shape=[None, self.n_sub_classes], name='y-label-sub')
+        self.y_big = tf.placeholder(tf.float32, shape=[None, self.n_big_classes], name='y-label-big')
+        self.y_sub = tf.placeholder(tf.float32, shape=[None, self.n_sub_classes], name='y-label-sub')
         self.do_rate = tf.placeholder(tf.float32, name='do-rate')
 
         # loss
