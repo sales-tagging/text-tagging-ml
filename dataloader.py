@@ -176,8 +176,11 @@ class DataLoader:
 
         self.data = []
 
+        # features
+        self.titles = []
         self.sentences = []
         self.big_labels, self.sub_labels = [], []
+
         self.max_sent_len = 0
 
         self.use_correct_spacing = use_correct_spacing
@@ -276,7 +279,7 @@ class DataLoader:
         db_conn = pymysql.connect(**db_info)
 
         with db_conn.cursor() as cur:
-            cur.execute("select big_category, sub_category, content from article")
+            cur.execute("select big_category, sub_category, title, content from article")
             self.data = cur.fetchall()
 
     def read_from_csv(self):
@@ -293,7 +296,8 @@ class DataLoader:
                     {
                         'big_category': line[0],
                         'sub_category': line[1],
-                        'content': bs(line[2], 'lxml').text
+                        'title': line[2],
+                        'content': bs(line[3], 'lxml').text
                      }
                 )
                 idx += 1
@@ -334,9 +338,11 @@ class DataLoader:
             pos = list(map(lambda x: '/'.join(x), self.analyzer.pos(self.normalize(d['content']))))
 
             if self.use_save:
-                self.csv_file.writelines(d['big_category'] + ',' + d['sub_category'] + ',' + ' '.join(pos) + '\n')
+                self.csv_file.writelines(
+                    d['big_category'] + ',' + d['sub_category'] + ',' + d['title'] + ',' + ' '.join(pos) + '\n')
 
             self.sentences.append(pos)
+            self.titles.append(d['title'].strip())
             self.big_labels.append(d['big_category'])
             self.sub_labels.append(d['sub_category'])
 
@@ -352,9 +358,11 @@ class DataLoader:
             pos = self.normalize(d['content'])
 
             if self.use_save:
-                self.csv_file.writelines(d['big_category'] + ',' + d['sub_category'] + ',' + ' '.join(pos) + '\n')
+                self.csv_file.writelines(
+                    d['big_category'] + ',' + d['sub_category'] + ',' + d['title'] + ',' + ' '.join(pos) + '\n')
 
             self.sentences.append(pos)
+            self.titles.append(d['title'].strip())
             self.big_labels.append(d['big_category'])
             self.sub_labels.append(d['sub_category'])
 
@@ -370,8 +378,13 @@ class DataLoader:
                 w = csv.DictWriter(csv_file, fieldnames=['big_category', 'sub_category', 'content'])
                 w.writeheader()
 
-                for big, sub, comment in tqdm(zip(self.big_labels, self.sub_labels, self.sentences)):
-                    w.writerow({'big_category': big, 'sub_category': sub, 'content': ' '.join(comment)})
+                for big, sub, title, comment in tqdm(zip(self.big_labels, self.sub_labels, self.titles, self.sentences)):
+                    w.writerow({
+                        'big_category': big,
+                        'sub_category': sub,
+                        'title': title,
+                        'content': ' '.join(comment)
+                    })
         except Exception as e:
             raise Exception(e)
 
@@ -383,13 +396,14 @@ class DataLoader:
             for line in tqdm(f.readlines()[1:]):
                 d = line.split(',')
                 try:
-                    sent = d[2].split(' ')
+                    sent = d[3].split(' ')
                     if len(sent) > self.max_sent_len:
                         self.max_sent_len = len(sent)
 
                     self.sentences.append(sent)
                     self.big_labels.append(d[0])
                     self.sub_labels.append(d[1])
+                    self.titles.append(d[2])
                 except IndexError:
                     print("[-] ", line)
 
