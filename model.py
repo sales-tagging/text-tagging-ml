@@ -109,7 +109,7 @@ class TextCNN:
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         learning_rate = tf.train.exponential_decay(lr,
                                                    self.global_step,
-                                                   50,  # hard-coded
+                                                   80,  # hard-coded
                                                    lr_decay,
                                                    staircase=True)
         self.lr = tf.clip_by_value(learning_rate,

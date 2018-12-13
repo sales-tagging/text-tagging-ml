@@ -69,10 +69,10 @@ data_arg.add_argument('--embed_size', type=int, default=256, help='the size of D
 data_arg.add_argument('--vocab_size', type=int, default=391587, help='default is w2v vocab size')
 data_arg.add_argument('--character_size', type=int, default=251, help='number of korean chars')
 data_arg.add_argument('--sequence_length', type=int, default=400, help='the length of the sentence.')
-data_arg.add_argument('--title_length', type=int, default=150, help='the length of the title')
+data_arg.add_argument('--title_length', type=int, default=100, help='the length of the title')
 # For Word2Vec, sequence_length should be 140
 # Fro Char2Vec, sequence_length should be 400
-data_arg.add_argument('--batch_size', type=int, default=256)
+data_arg.add_argument('--batch_size', type=int, default=128)
 data_arg.add_argument('--n_threads', type=int, default=8, help='the number of workers for speeding up')
 
 # Train/Test hyper-parameters
@@ -82,7 +82,7 @@ train_arg.add_argument('--epochs', type=int, default=101)
 train_arg.add_argument('--logging_step', type=int, default=500)
 train_arg.add_argument('--optimizer', type=str, default='adam', choices=['adam', 'sgd', 'adadelta'])
 train_arg.add_argument('--grad_clip', type=float, default=5.)
-train_arg.add_argument('--lr', type=float, default=8e-4)
+train_arg.add_argument('--lr', type=float, default=2e-4)
 train_arg.add_argument('--lr_decay', type=float, default=.95)
 train_arg.add_argument('--lr_lower_boundary', type=float, default=2e-5)
 train_arg.add_argument('--test_size', type=float, default=.15)

@@ -221,7 +221,7 @@ if __name__ == '__main__':
     y_sub_tr, y_sub_va = y_sub_data[:n_split], y_sub_data[n_split:]
 
     if config.verbose:
-        print("[*] train/test %d/%d(%.1f/%.1f) split!" % (len(x_sent_tr), len(x_sent_va),
+        print("[*] train/test %d/%d(%.2f/%.2f) split!" % (len(x_sent_tr), len(x_sent_va),
                                                           1. - config.test_size, config.test_size))
 
     data_size = x_sent_data.shape[0]
