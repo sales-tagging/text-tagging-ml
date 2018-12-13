@@ -167,7 +167,7 @@ class Char2VecEmbeddings:
 
 class DataLoader:
 
-    def __init__(self, file, n_big_classes=7, n_sub_classes=39, analyzer='hannamum',
+    def __init__(self, file, n_big_classes=6, n_sub_classes=38, analyzer='hannamum',
                  use_correct_spacing=False, use_normalize=True,
                  load_from='db', is_analyzed=False, fn_to_save=None, use_save=True, jvm_path=None,
                  config=None):
