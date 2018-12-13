@@ -71,6 +71,7 @@ if __name__ == '__main__':
                             analyzer='char',
                             is_analyzed=False,
                             use_save=True,
+                            use_correct_spacing=True,
                             config=config)  # DataSet Loader
 
         ds_len = len(ds)
@@ -99,7 +100,7 @@ if __name__ == '__main__':
                 max_length[1] = title_length
 
             sen_len.append(sentence_length)
-            title_len.append(title_len)
+            title_len.append(title_length)
 
             sent = vectors.decompose_str_as_one_hot(sentence, warning=False)[:config.sequence_length]
             title = vectors.decompose_str_as_one_hot(title, warning=False)[:config.title_length]
