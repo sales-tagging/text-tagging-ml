@@ -84,7 +84,7 @@ train_arg.add_argument('--grad_clip', type=float, default=5.)
 train_arg.add_argument('--lr', type=float, default=8e-4)
 train_arg.add_argument('--lr_decay', type=float, default=.95)
 train_arg.add_argument('--lr_lower_boundary', type=float, default=2e-5)
-train_arg.add_argument('--test_size', type=float, default=.2)
+train_arg.add_argument('--test_size', type=float, default=.15)
 
 # Korean words Pre-Processing
 nlp_model = add_arg_group('NLP')
