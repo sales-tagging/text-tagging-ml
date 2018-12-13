@@ -71,7 +71,6 @@ if __name__ == '__main__':
                             analyzer='char',
                             is_analyzed=False,
                             use_save=True,
-                            use_correct_spacing=True,
                             config=config)  # DataSet Loader
 
         ds_len = len(ds)
