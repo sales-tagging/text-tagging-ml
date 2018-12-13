@@ -198,13 +198,13 @@ class TextCNN:
     def build_model(self):
         sent_embeds, title_embeds = [], []
 
-        with tf.device('/cpu:0'), tf.variable_scope('sentence_embeddings'):
+        with tf.variable_scope('sentence_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.sent_embeddings[i], self.x_sent)
                 embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
                 sent_embeds.append(embed)
 
-        with tf.device('/cpu:1'), tf.variable_scope('title_embeddings'):
+        with tf.variable_scope('title_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.title_embeddings[i], self.x_title)
                 embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
