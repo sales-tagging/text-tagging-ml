@@ -112,12 +112,12 @@ if __name__ == '__main__':
             print("  [*] Article")
             print("  [*] min length of article : %d" % min_length[0])
             print("  [*] max length of article : %d" % max_length[0])
-            print("  [*] avg length of reviews : %.2f" % sum(sen_len) / float(x_sent_data.shape[0]))
+            print("  [*] avg length of reviews : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
 
             print("  [*] Title")
             print("  [*] min length of article : %d" % min_length[1])
             print("  [*] max length of article : %d" % max_length[1])
-            print("  [*] avg length of reviews : %.2f" % sum(title_len) / float(x_title_data.shape[0]))
+            print("  [*] avg length of reviews : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
     else:  # Word2Vec
         ds = DataLoader(file=config.processed_dataset,
                         n_classes=config.n_classes,
