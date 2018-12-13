@@ -241,7 +241,7 @@ class DataLoader:
 
             if self.use_save:
                 self.csv_file = open(self.fn_to_save, 'w', encoding='utf8', newline='')
-                self.csv_file.writelines("rate,comment\n")  # csv header
+                self.csv_file.writelines("big_category,sub_category,title,content\n")  # csv header
                 print("[*] %s is generated!" % self.fn_to_save)
 
             # Stage 3 : build data (pos/morphs analyze)
@@ -376,7 +376,7 @@ class DataLoader:
     def naive_save(self):
         try:
             with open(self.fn_to_save, 'w', encoding='utf8', newline='') as csv_file:
-                w = csv.DictWriter(csv_file, fieldnames=['big_category', 'sub_category', 'content'])
+                w = csv.DictWriter(csv_file, fieldnames=['big_category', 'sub_category', 'title', 'content'])
                 w.writeheader()
 
                 for big, sub, title, comment in tqdm(zip(self.big_labels, self.sub_labels, self.titles, self.sentences)):
