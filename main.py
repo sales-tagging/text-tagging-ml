@@ -319,7 +319,7 @@ if __name__ == '__main__':
                         valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
                         valid_score = 0.
 
-                        valid_iter = len(x_sent_va.shape[0]) // batch_size
+                        valid_iter = x_sent_va.shape[0] // batch_size
                         for i in tqdm(range(0, valid_iter)):
                             v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score = s.run([
                                 model.p_big_cat_loss, model.p_sub_cat_loss,
