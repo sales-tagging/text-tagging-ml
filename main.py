@@ -213,7 +213,7 @@ if __name__ == '__main__':
     # shuffle/split data
     # x_train, x_valid, y_train, y_valid = train_test_split(x_data, y_data, random_state=config.seed,
     #                                                       test_size=config.test_size, shuffle=True)
-    n_split = int(x_sent_data.shape[0] * config.test_size)
+    n_split = int(x_sent_data.shape[0] * (1. - config.test_size))
 
     x_sent_tr, x_sent_va = x_sent_data[:n_split], x_sent_data[n_split:]
     x_title_tr, x_title_va = x_title_data[:n_split], x_title_data[n_split:]
