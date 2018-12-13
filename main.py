@@ -52,7 +52,7 @@ def label_convert(big_label, sub_label, length):
            'culture',
            'game', 'education', 'otaku', 'manhwa', 'sports', 'animation', 'entertainment', 'movie', 'liberal-arts', 'music', 'book', 'study',
            # 'tech',
-           'sns', 'software', 'technology', 'science', 'style', 'medicine', '환경',
+           'sns', 'software', 'technology', 'science', 'style', 'medicine', '%ed%99%98%ea%b2%bd',  # 환경
            'life',
            'health', 'parents', 'travel', 'english', 'food',
            # 'special'
@@ -68,10 +68,7 @@ def label_convert(big_label, sub_label, length):
         try:
             sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i])]
         except ValueError:
-            try:
-                sub_labels[i] = np.eye(sub_class)[str(sub.index(sub_label[i].decode('utf8')))]
-            except ValueError:
-                raise ValueError("[-] key error", big_label[i], sub_label[i])
+            raise ValueError("[-] key error", big_label[i], sub_label[i])
 
     return big_labels, sub_labels
 
