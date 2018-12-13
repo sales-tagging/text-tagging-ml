@@ -164,7 +164,7 @@ class TextCNN:
             return reduce(lambda x, y: x * y, v.get_shape().as_list())
 
         n = sum(size(v) for v in tf.trainable_variables())
-        print("[*] Model Size : %d params" % n)
+        print("[*] Model Size : %.2f M params" % (n / 1e6))
 
     def se_module(self, x, units):
         with tf.variable_scope('se-block'):
