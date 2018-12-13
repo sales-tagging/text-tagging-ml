@@ -116,7 +116,7 @@ if __name__ == '__main__':
             print("  [*] min length of article : %d" % min_length[1])
             print("  [*] max length of article : %d" % max_length[1])
             print("  [*] avg length of reviews : %.2f" % sum(title_len) / float(x_title_data.shape[0]))
-    else:  # Word2Vec / Doc2Vec
+    else:  # Word2Vec
         ds = DataLoader(file=config.processed_dataset,
                         n_classes=config.n_classes,
                         analyzer=None,
@@ -171,45 +171,32 @@ if __name__ == '__main__':
                 print("  [*] max length of article : %d" % max_length[1])
                 print("  [*] avg length of reviews : %.2f" % sum(title_len) / float(x_title_data.shape[0]))
 
-    y_big_1data = np.array(ds.big_labels).reshape(-1, config.n_big_classes)
-    y_sub_1data = np.array(ds.sub_labels).reshape(-1, config.n_sub_classes)
+    y_big_data = np.array(ds.big_labels).reshape(-1, config.n_big_classes)
+    y_sub_data = np.array(ds.sub_labels).reshape(-1, config.n_sub_classes)
 
     ds = None
 
     if config.verbose:
         print("[*] sentence to %s index conversion finish!" % config.use_pre_trained_embeds)
 
-    if refine_data:
-        # resizing the amount of rate-10 data
-        # 2.5M to 500K # downsize to 20%
-        if not config.n_classes == 1:
-            rate_10_idx = [idx for idx, y in tqdm(enumerate(y_data)) if np.argmax(y, axis=-1) == 9]
-        else:
-            rate_10_idx = [idx for idx, y in tqdm(enumerate(y_data)) if y == 10]
-
-        rand_idx = np.random.choice(rate_10_idx, 4 * len(rate_10_idx) // 5)
-
-        x_data = np.delete(x_data, rand_idx, axis=0).reshape(-1, config.sequence_length)
-        y_data = np.delete(y_data, rand_idx, axis=0).reshape(-1, config.n_classes)
-
-        if config.verbose:
-            print("[*] refined comment : ", x_data.shape)
-            print("[*] refined rate    : ", y_data.shape)
-
     # shuffle/split data
+    # x_train, x_valid, y_train, y_valid = train_test_split(x_data, y_data, random_state=config.seed,
+    #                                                       test_size=config.test_size, shuffle=True)
+    n_split = x_sent_data.shape[0] * config.test_size
 
-    x_train, x_valid, y_train, y_valid = train_test_split(x_data, y_data, random_state=config.seed,
-                                                          test_size=config.test_size, shuffle=True)
+    x_sent_tr, x_sent_va = x_sent_data[:n_split], x_sent_data[n_split:]
+    x_title_tr, x_title_va = x_title_data[:n_split], x_title_data[n_split:]
+    y_big_tr, y_big_va = y_big_data[:n_split], y_big_data[n_split:]
+    y_sub_tr, y_sub_va = y_sub_data[:n_split], y_sub_data[n_split:]
+
     if config.verbose:
-        print("[*] train/test %d/%d(%.1f/%.1f) split!" % (len(y_train), len(y_valid),
+        print("[*] train/test %d/%d(%.1f/%.1f) split!" % (len(x_sent_tr), len(x_sent_va),
                                                           1. - config.test_size, config.test_size))
 
-    del x_data, y_data
-
-    data_size = x_train.shape[0]
+    data_size = x_sent_data.shape[0]
 
     # DataSet Iterator
-    di = DataIterator(x=x_train, y=y_train, batch_size=config.batch_size)
+    di = DataIterator(x=[x_sent_tr, x_title_tr], y=[y_big_tr, y_sub_tr], batch_size=config.batch_size)
 
     if config.device == 'gpu':
         dev_config = tf.ConfigProto()
@@ -223,13 +210,15 @@ if __name__ == '__main__':
             model = TextCNN(s=s,
                             mode=config.mode,
                             w2v_embeds=vectors.embeds if not embed_type == 'c2v' else None,
-                            n_classes=config.n_classes,
+                            n_big_classes=config.n_big_classes,
+                            n_sub_classes=config.n_sub_classes,
                             optimizer=config.optimizer,
                             kernel_sizes=config.kernel_size,
                             n_filters=config.filter_size,
                             n_dims=config.embed_size,
                             vocab_size=config.character_size if embed_type == 'c2v' else config.vocab_size + 1,
                             sequence_length=config.sequence_length,
+                            title_length=config.title_length,
                             lr=config.lr,
                             lr_decay=config.lr_decay,
                             lr_lower_boundary=config.lr_lower_boundary,
@@ -242,24 +231,6 @@ if __name__ == '__main__':
                             se_radio=config.se_ratio,
                             se_type=config.se_type,
                             use_multi_channel=config.use_multi_channel)
-        elif config.model == 'charrnn':
-            model = TextRNN(s=s,
-                            mode=config.mode,
-                            w2v_embeds=vectors.embeds if not embed_type == 'c2v' else None,
-                            n_classes=config.n_classes,
-                            optimizer=config.optimizer,
-                            n_gru_cells=config.n_gru_cells,
-                            n_gru_layers=config.n_gru_layers,
-                            n_attention_size=config.n_attention_size,
-                            n_dims=config.embed_size,
-                            vocab_size=config.character_size if embed_type == 'c2v' else config.vocab_size + 1,
-                            sequence_length=config.sequence_length,
-                            lr=config.lr,
-                            lr_decay=config.lr_decay,
-                            lr_lower_boundary=config.lr_lower_boundary,
-                            fc_unit=config.fc_unit,
-                            grad_clip=config.grad_clip,
-                            summary=config.pretrained)
         else:
             raise NotImplementedError("[-] Not Implemented Yet")
 
@@ -290,47 +261,77 @@ if __name__ == '__main__':
         start_time = time.time()
 
         if config.is_train:
-            best_loss = 1e1  # initial value
+            best_score = 0  # initial value
             batch_size = config.batch_size
             model.global_step.assign(tf.constant(global_step))
             restored_epochs = global_step // (data_size // batch_size)
             for epoch in range(restored_epochs, config.epochs):
                 for x_tr, y_tr in di.iterate():
                     # training
-                    _, loss, acc = s.run([model.train_op, model.loss, model.accuracy],
-                                         feed_dict={
-                                             model.x: x_tr,
-                                             model.y: y_tr,
-                                             model.do_rate: config.drop_out,
-                                         })
+                    _, big_cat_loss, sub_cat_loss, big_cat_acc, sub_cat_acc, score = \
+                        s.run([model.train_op,
+                               model.p_big_cat_loss, model.p_sub_cat_loss,
+                               model.acc_big_cat, model.acc_sub_cat,
+                               model.score,
+                               ],
+                              feed_dict={
+                                  model.x_sent: x_tr[0],
+                                  model.x_title: x_tr[1],
+                                  model.y_big: y_tr[0],
+                                  model.y_sub: y_tr[1],
+                                  model.do_rate: config.drop_out,
+                              })
 
                     if global_step and global_step % config.logging_step == 0:
                         # validation
-                        valid_loss, valid_acc = 0., 0.
+                        valid_big_cat_loss, valid_sub_cat_loss = 0., 0.
+                        valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
+                        valid_score = 0.
 
-                        valid_iter = len(y_va) // batch_size
+                        valid_iter = len(x_sent_va.shape[0]) // batch_size
                         for i in tqdm(range(0, valid_iter)):
-                            v_loss, v_acc = s.run([model.loss, model.accuracy],
-                                                  feed_dict={
-                                                      model.x: x_valid[batch_size * i:batch_size * (i + 1)],
-                                                      model.y: y_valid[batch_size * i:batch_size * (i + 1)],
-                                                      model.do_rate: .0,
-                                                  })
-                            valid_acc += v_acc
-                            valid_loss += v_loss
+                            v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score = s.run([
+                                model.p_big_cat_loss, model.p_sub_cat_loss,
+                                model.acc_big_cat, model.acc_sub_cat,
+                                model.score
+                            ],
+                                feed_dict={
+                                    model.x_sent: x_sent_va[batch_size * i:batch_size * (i + 1)],
+                                    model.x_title: x_title_va[batch_size * i:batch_size * (i + 1)],
+                                    model.y_big: y_big_va[batch_size * i:batch_size * (i + 1)],
+                                    model.y_sub: y_sub_va[batch_size * i:batch_size * (i + 1)],
+                                    model.do_rate: .0,
+                                })
 
-                        valid_loss /= valid_iter
-                        valid_acc /= valid_iter
+                            valid_big_cat_loss += v_bc_loss
+                            valid_sub_cat_loss += v_sc_loss
+                            valid_big_cat_acc += v_bc_acc
+                            valid_sub_cat_acc += v_sc_acc
+                            valid_score += v_score
+
+                        valid_big_cat_loss /= valid_iter
+                        valid_sub_cat_loss /= valid_iter
+                        valid_big_cat_acc /= valid_iter
+                        valid_sub_cat_acc /= valid_iter
+                        valid_score /= valid_iter
 
                         print("[*] epoch %03d global step %07d" % (epoch, global_step),
-                              " train_loss : {:.8f} train_acc : {:.4f}".format(loss, acc),
-                              " valid_loss : {:.8f} valid_acc : {:.4f}".format(valid_loss, valid_acc))
+                              "  [*] Big Category "
+                              "train_loss : {:.4f} train_acc : {:.2f} valid_loss {:.4f} valid_acc : {:.2f}".
+                              format(big_cat_loss, big_cat_acc, valid_big_cat_loss, valid_big_cat_acc),
+                              "  [*] Sub Category "
+                              "train_loss : {:.4f} train_acc : {:.2f} valid_loss {:.4f} valid_acc : {:.2f}".
+                              format(sub_cat_loss, sub_cat_acc, valid_sub_cat_loss, valid_sub_cat_acc),
+                              " [*] Score train_score : {:.8f} valid_score : {:.8f}".format(score, valid_score)
+                              )
 
                         # summary
                         summary = s.run(model.merged,
                                         feed_dict={
-                                            model.x: x_tr,
-                                            model.y: y_tr,
+                                            model.x_sent: x_sent_va,
+                                            model.x_title: x_title_va,
+                                            model.y_big: y_big_va,
+                                            model.y_sub: y_sub_va,
                                             model.do_rate: .0,
                                         })
 
@@ -338,14 +339,16 @@ if __name__ == '__main__':
                         model.writer.add_summary(summary, global_step)
 
                         # Model save
-                        model.saver.save(s, config.pretrained + '%s.ckpt' % config.model,
+                        model.saver.save(s,
+                                         config.pretrained + '%s.ckpt' % config.model,
                                          global_step=global_step)
 
-                        if valid_loss < best_loss:
-                            print("[+] model improved {:.7f} to {:.7f}".format(best_loss, valid_loss))
-                            best_loss = valid_loss
+                        if valid_score > best_score:
+                            print("[+] model improved {:.8f} to {:.8f}".format(best_score, valid_score))
+                            best_score = valid_score
 
-                            model.best_saver.save(s, config.pretrained + '%s-best_loss.ckpt' % config.model,
+                            model.best_saver.save(s,
+                                                  config.pretrained + '%s-best_score.ckpt' % config.model,
                                                   global_step=global_step)
                         print()
 
@@ -356,31 +359,4 @@ if __name__ == '__main__':
 
             print("[+] Training Done! Elapsed {:.8f}s".format(end_time - start_time))
         else:  # test
-            x_train, y_train = None, None
-            x_va, y_va = x_valid, y_valid
-
-            valid_loss, valid_acc = 0., 0.
-
-            batch_size = config.batch_size
-            valid_iter = len(y_va) // config.batch_size
-
-            v_rates = []
-            for i in tqdm(range(0, valid_iter)):
-                v_loss, v_acc, v_rate = s.run([model.loss, model.accuracy, model.rates],
-                                              feed_dict={
-                                                  model.x: x_va[batch_size * i:batch_size * (i + 1)],
-                                                  model.y: y_va[batch_size * i:batch_size * (i + 1)],
-                                                  model.do_rate: .0,
-                                              })
-                valid_acc += v_acc
-                valid_loss += v_loss
-
-                for j in v_rate:
-                    v_rates.append(j)
-
-            valid_loss /= valid_iter
-            valid_acc /= valid_iter
-
-            print("[+] Validation Result (%s model %d global steps), total %d samples" %
-                  (config.model, global_step, x_valid.shape[0]))
-            print("    => valid_loss (MSE) : {:.8f} valid_acc (th=1.0) : {:.4f}".format(valid_loss, valid_acc))
+            pass
