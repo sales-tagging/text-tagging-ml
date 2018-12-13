@@ -359,10 +359,10 @@ if __name__ == '__main__':
                         # summary
                         summary = s.run(model.merged,
                                         feed_dict={
-                                            model.x_sent: x_sent_va,
-                                            model.x_title: x_title_va,
-                                            model.y_big: y_big_va,
-                                            model.y_sub: y_sub_va,
+                                            model.x_sent: x_sent_va[:batch_size],
+                                            model.x_title: x_title_va[:batch_size],
+                                            model.y_big: y_big_va[:batch_size],
+                                            model.y_sub: y_sub_va[:batch_size],
                                             model.do_rate: .0,
                                         })
 
