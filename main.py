@@ -210,9 +210,16 @@ if __name__ == '__main__':
     if config.verbose:
         print("[*] sentence to %s index conversion finish!" % config.use_pre_trained_embeds)
 
-    # shuffle/split data
-    # x_train, x_valid, y_train, y_valid = train_test_split(x_data, y_data, random_state=config.seed,
-    #                                                       test_size=config.test_size, shuffle=True)
+    # shuffle
+    perm = np.arange(x_sent_data.shape[0])
+    np.random.shuffle(perm)
+
+    x_sent_data = x_sent_data[perm]
+    x_title_data = x_title_data[perm]
+    y_big_data = y_big_data[perm]
+    y_sub_data = y_sub_data[perm]
+
+    # split
     n_split = int(x_sent_data.shape[0] * (1. - config.test_size))
 
     x_sent_tr, x_sent_va = x_sent_data[:n_split], x_sent_data[n_split:]
