@@ -200,7 +200,7 @@ if __name__ == '__main__':
             print("  [*] max length : %d" % max_length[1])
             print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
 
-    y_big_data, y_sub_data = label_convert(np.array(ds.big_labels), np.array(ds.sub_labels))
+    y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels)
 
     ds = None
 
