@@ -58,13 +58,15 @@ class TextCNN:
 
         self.n_embeds = 2 if self.use_multi_channel else 1
 
-        self.sent_embeddings = [tf.get_variable('embeddings' if self.n_embeds == 1 else 'sent_embeddings-%d' % i,
+        self.sent_embeddings = [tf.get_variable('sent_embeddings'
+                                                if self.n_embeds == 1 else 'sent_embeddings-%d' % i,
                                                 shape=[self.vocab_size, self.n_dims],
                                                 initializer=self.he_uni,
                                                 trainable=False if self.mode == 'static' else True)
                                 for i in range(self.n_embeds)]
 
-        self.title_embeddings = [tf.get_variable('embeddings' if self.n_embeds == 1 else 'title_embeddings-%d' % i,
+        self.title_embeddings = [tf.get_variable('title_embeddings'
+                                                 if self.n_embeds == 1 else 'title_embeddings-%d' % i,
                                                  shape=[self.vocab_size, self.n_dims],
                                                  initializer=self.he_uni,
                                                  trainable=False if self.mode == 'static' else True)
