@@ -437,8 +437,6 @@ class DataIterator:
 
     def __init__(self, x, y, batch_size):
         # x, y should be numpy obj
-        assert not isinstance(x, list) and not isinstance(y, list)
-
         self.x_sent = x[0]
         self.x_title = x[1]
         self.y_big = y[0]
