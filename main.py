@@ -5,7 +5,6 @@ import numpy as np
 import tensorflow as tf
 
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split
 
 from model import TextCNN
 from config import get_config, export_config
@@ -42,6 +41,33 @@ def load_trained_embeds(embed_mode='char'):
         if config.verbose:
             print("[+] Using Char2Vec, %d dims" % config.embed_size)
     return vec
+
+
+def label_convert(big_label, sub_label):
+    big = ['business', 'current-affairs', 'culture', 'tech', 'life', 'special']
+    sub = ['business ',
+           'marketing', 'investment',
+           'current-affairs',
+           'economy', 'international', 'military', 'society', 'politics', 'religion',
+           'culture',
+           'game', 'education', 'otaku', 'manhwa', 'sports', 'animation', 'entertainment', 'movie', 'liberal-arts', 'music', 'book', 'study',
+           # 'tech',
+           'sns', 'software', 'technology', 'science', 'style', 'medicine', '환경',
+           'life',
+           'health', 'parents', 'travel', 'english', 'food',
+           # 'special'
+           'gag', 'interview',
+           ]
+
+    big_class, sub_class = len(big), len(sub)
+    big_labels = np.zeros((big_label.shape[0], big_class), np.uint8)
+    sub_labels = np.zeros((sub_label.shape[0], sub_class), np.uint8)
+
+    for i in range(big_label.shape[0]):
+        big_labels[i] = np.eye(big_class)[big.index(big_labels[i])]
+        sub_labels[i] = np.eye(sub_class)[sub.index(sub_labels[i])]
+
+    return big_labels, sub_labels
 
 
 if __name__ == '__main__':
@@ -110,17 +136,18 @@ if __name__ == '__main__':
         if config.verbose:
             print("[*] Total %d samples (training)" % x_sent_data.shape[0])
             print("  [*] Article")
-            print("  [*] min length of article : %d" % min_length[0])
-            print("  [*] max length of article : %d" % max_length[0])
-            print("  [*] avg length of reviews : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
+            print("  [*] min length : %d" % min_length[0])
+            print("  [*] max length : %d" % max_length[0])
+            print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
 
             print("  [*] Title")
-            print("  [*] min length of article : %d" % min_length[1])
-            print("  [*] max length of article : %d" % max_length[1])
-            print("  [*] avg length of reviews : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
+            print("  [*] min length : %d" % min_length[1])
+            print("  [*] max length : %d" % max_length[1])
+            print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
     else:  # Word2Vec
         ds = DataLoader(file=config.processed_dataset,
-                        n_classes=config.n_classes,
+                        n_big_classes=config.n_big_classes,
+                        n_sub_classes=config.n_sub_classes,
                         analyzer=None,
                         is_analyzed=True,
                         use_save=False,
@@ -160,21 +187,20 @@ if __name__ == '__main__':
             x_title_data[i] = np.pad(vectors.words_to_index(title),
                                      (0, config.title_length - len(title)), 'constant',
                                      constant_values=config.vocab_size)
+
         if config.verbose:
-            if config.verbose:
-                print("[*] Total %d samples (training)" % x_sent_data.shape[0])
-                print("  [*] Article")
-                print("  [*] min length of article : %d" % min_length[0])
-                print("  [*] max length of article : %d" % max_length[0])
-                print("  [*] avg length of reviews : %.2f" % sum(sen_len) / float(x_sent_data.shape[0]))
+            print("[*] Total %d samples (training)" % x_sent_data.shape[0])
+            print("  [*] Article")
+            print("  [*] min length : %d" % min_length[0])
+            print("  [*] max length : %d" % max_length[0])
+            print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
 
-                print("  [*] Title")
-                print("  [*] min length of article : %d" % min_length[1])
-                print("  [*] max length of article : %d" % max_length[1])
-                print("  [*] avg length of reviews : %.2f" % sum(title_len) / float(x_title_data.shape[0]))
+            print("  [*] Title")
+            print("  [*] min length : %d" % min_length[1])
+            print("  [*] max length : %d" % max_length[1])
+            print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
 
-    y_big_data = np.array(ds.big_labels).reshape(-1, config.n_big_classes)
-    y_sub_data = np.array(ds.sub_labels).reshape(-1, config.n_sub_classes)
+    y_big_data, y_sub_data = label_convert(np.array(ds.big_labels), np.array(ds.sub_labels))
 
     ds = None
 
