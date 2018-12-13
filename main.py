@@ -346,14 +346,14 @@ if __name__ == '__main__':
                         valid_sub_cat_acc /= valid_iter
                         valid_score /= valid_iter
 
-                        print("[*] epoch %03d global step %07d" % (epoch, global_step),
-                              "  [*] Big Category "
-                              "train_loss : {:.4f} train_acc : {:.2f} valid_loss {:.4f} valid_acc : {:.2f}".
+                        print("[*] epoch %03d global step %07d \n" % (epoch, global_step),
+                              "  [*] Big Category \n"
+                              " train_loss : {:.4f} train_acc : {:.2f} \n valid_loss {:.4f} valid_acc : {:.2f}".
                               format(big_cat_loss, big_cat_acc, valid_big_cat_loss, valid_big_cat_acc),
-                              "  [*] Sub Category "
-                              "train_loss : {:.4f} train_acc : {:.2f} valid_loss {:.4f} valid_acc : {:.2f}".
+                              "  [*] Sub Category \n"
+                              " train_loss : {:.4f} train_acc : {:.2f} \n valid_loss {:.4f} valid_acc : {:.2f}".
                               format(sub_cat_loss, sub_cat_acc, valid_sub_cat_loss, valid_sub_cat_acc),
-                              " [*] Score train_score : {:.8f} valid_score : {:.8f}".format(score, valid_score)
+                              " [*] Score \n train_score : {:.8f} valid_score : {:.8f}".format(score, valid_score)
                               )
 
                         # summary
