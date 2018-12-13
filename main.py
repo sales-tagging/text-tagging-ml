@@ -73,31 +73,49 @@ if __name__ == '__main__':
 
         ds_len = len(ds)
 
-        x_data = np.zeros((ds_len, config.sequence_length), dtype=np.uint8)
+        x_sent_data = np.zeros((ds_len, config.sequence_length), dtype=np.uint8)
+        x_title_data = np.zeros((ds_len, config.title_length), dtype=np.uint8)
 
-        sen_len = list()
-        min_length, max_length, avg_length = config.sequence_length, 0, 0
+        sen_len, title_len = list(), list()
+        min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
         for i in tqdm(range(ds_len)):
             sentence = ' '.join(ds.sentences[i]).strip('\n')
+            title = ' '.join(ds.titles[i]).strip('\n')
+
             sentence_length = len(sentence)
 
-            if sentence_length < min_length:
-                min_length = sentence_length
-            if sentence_length > max_length:
-                max_length = sentence_length
+            if sentence_length < min_length[0]:
+                min_length[0] = sentence_length
+            if sentence_length > max_length[0]:
+                max_length[0] = sentence_length
+
+            title_length = len(title)
+
+            if title_length < min_length[1]:
+                min_length[1] = title_length
+            if title_length > max_length[1]:
+                max_length[1] = title_length
 
             sen_len.append(sentence_length)
+            title_len.append(title_len)
 
-            sent = vectors.decompose_str_as_one_hot(sentence,
-                                                    warning=False)[:config.sequence_length]
-            x_data[i] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
+            sent = vectors.decompose_str_as_one_hot(sentence, warning=False)[:config.sequence_length]
+            title = vectors.decompose_str_as_one_hot(title, warning=False)[:config.title_length]
+
+            x_sent_data[i] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
+            x_title_data[i] = np.pad(title, (0, config.title_length - len(title)), 'constant', constant_values=0)
 
         if config.verbose:
-            print("[*] Total %d samples (training)" % x_data.shape[0])
-            print("  [*] min length of reviews : %d" % min_length)
-            print("  [*] max length of reviews : %d" % max_length)
-            avg_length = sum(sen_len) / float(x_data.shape[0])
-            print("  [*] avg length of reviews : %d" % avg_length)
+            print("[*] Total %d samples (training)" % x_sent_data.shape[0])
+            print("  [*] Article")
+            print("  [*] min length of article : %d" % min_length[0])
+            print("  [*] max length of article : %d" % max_length[0])
+            print("  [*] avg length of reviews : %.2f" % sum(sen_len) / float(x_sent_data.shape[0]))
+
+            print("  [*] Title")
+            print("  [*] min length of article : %d" % min_length[1])
+            print("  [*] max length of article : %d" % max_length[1])
+            print("  [*] avg length of reviews : %.2f" % sum(title_len) / float(x_title_data.shape[0]))
     else:  # Word2Vec / Doc2Vec
         ds = DataLoader(file=config.processed_dataset,
                         n_classes=config.n_classes,
@@ -108,32 +126,53 @@ if __name__ == '__main__':
 
         ds_len = len(ds)
 
-        x_data = np.zeros((ds_len, config.sequence_length), dtype=np.int32)
+        x_sent_data = np.zeros((ds_len, config.sequence_length), dtype=np.int32)
+        x_title_data = np.zeros((ds_len, config.title_length), dtype=np.int32)
 
-        sen_len = list()
-        min_length, max_length, avg_length = config.sequence_length, 0, 0
+        sen_len, title_len = list(), list()
+        min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
         for i in tqdm(range(ds_len)):
             sent = ds.sentences[i][:config.sequence_length]
+            title = ds.sentences[i][:config.title_length]
 
             sentence_length = len(sent)
-            if sentence_length < min_length:
-                min_length = sentence_length
-            if sentence_length > max_length:
-                max_length = sentence_length
+
+            if sentence_length < min_length[0]:
+                min_length[0] = sentence_length
+            if sentence_length > max_length[0]:
+                max_length[0] = sentence_length
+
+            title_length = len(title)
+
+            if title_length < min_length[1]:
+                min_length[1] = title_length
+            if title_length > max_length[1]:
+                max_length[1] = title_length
 
             sen_len.append(sentence_length)
+            title_len.append(title_length)
 
-            x_data[i] = np.pad(vectors.words_to_index(sent),
-                               (0, config.sequence_length - len(sent)), 'constant', constant_values=config.vocab_size)
-
+            x_sent_data[i] = np.pad(vectors.words_to_index(sent),
+                                    (0, config.sequence_length - len(sent)), 'constant',
+                                    constant_values=config.vocab_size)
+            x_title_data[i] = np.pad(vectors.words_to_index(title),
+                                     (0, config.title_length - len(title)), 'constant',
+                                     constant_values=config.vocab_size)
         if config.verbose:
-            print("[*] Total %d samples (training)" % x_data.shape[0])
-            print("  [*] min length of reviews : %d" % min_length)
-            print("  [*] max length of reviews : %d" % max_length)
-            avg_length = sum(sen_len) / float(x_data.shape[0])
-            print("  [*] avg length of reviews : %d" % avg_length)
+            if config.verbose:
+                print("[*] Total %d samples (training)" % x_sent_data.shape[0])
+                print("  [*] Article")
+                print("  [*] min length of article : %d" % min_length[0])
+                print("  [*] max length of article : %d" % max_length[0])
+                print("  [*] avg length of reviews : %.2f" % sum(sen_len) / float(x_sent_data.shape[0]))
 
-    y_data = np.array(ds.labels).reshape(-1, config.n_classes)
+                print("  [*] Title")
+                print("  [*] min length of article : %d" % min_length[1])
+                print("  [*] max length of article : %d" % max_length[1])
+                print("  [*] avg length of reviews : %.2f" % sum(title_len) / float(x_title_data.shape[0]))
+
+    y_big_1data = np.array(ds.big_labels).reshape(-1, config.n_big_classes)
+    y_sub_1data = np.array(ds.sub_labels).reshape(-1, config.n_sub_classes)
 
     ds = None
 
@@ -158,6 +197,7 @@ if __name__ == '__main__':
             print("[*] refined rate    : ", y_data.shape)
 
     # shuffle/split data
+
     x_train, x_valid, y_train, y_valid = train_test_split(x_data, y_data, random_state=config.seed,
                                                           test_size=config.test_size, shuffle=True)
     if config.verbose:
