@@ -69,7 +69,7 @@ def label_convert(big_label, sub_label, length):
             sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i])]
         except ValueError:
             try:
-                sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i].encode('utf8'))]
+                sub_labels[i] = np.eye(sub_class)[str(sub.index(sub_label[i].decode('utf8')))]
             except ValueError:
                 raise ValueError("[-] key error", big_label[i], sub_label[i])
 
