@@ -438,8 +438,10 @@ class DataIterator:
         # x, y should be numpy obj
         assert not isinstance(x, list) and not isinstance(y, list)
 
-        self.x = x
-        self.y = y
+        self.x_sent = x[0]
+        self.x_title = x[1]
+        self.y_big = y[0]
+        self.y_sub = y[1]
 
         self.batch_size = batch_size
         self.num_examples = num_examples = x.shape[0]
@@ -456,15 +458,17 @@ class DataIterator:
             perm = np.arange(self.num_examples)
             np.random.shuffle(perm)
 
-            self.x = self.x[perm]
-            self.y = self.y[perm]
+            self.x_sent = self.x_sent[perm]
+            self.x_title = self.x_title[perm]
+            self.y_big = self.y_big[perm]
+            self.y_sub = self.y_sub[perm]
 
             start = 0
             self.pointer = self.batch_size
 
         end = self.pointer
 
-        return self.x[start:end], self.y[start:end]
+        return [self.x_sent[start:end], self.x_title[start:end]], [self.y_big[start:end], self.y_sub[start:end]]
 
     def iterate(self):
         for step in range(self.num_batches):
