@@ -45,7 +45,7 @@ def load_trained_embeds(embed_mode='char'):
 
 def label_convert(big_label, sub_label, length):
     big = ['business', 'current-affairs', 'culture', 'tech', 'life', 'special']
-    sub = ['business ',
+    sub = ['business',
            'marketing', 'investment',
            'current-affairs',
            'economy', 'international', 'military', 'society', 'politics', 'religion',
@@ -63,9 +63,12 @@ def label_convert(big_label, sub_label, length):
     big_labels = np.zeros((length, big_class), np.uint8)
     sub_labels = np.zeros((length, sub_class), np.uint8)
 
-    for i in range(length):
-        big_labels[i] = np.eye(big_class)[big.index(big_label[i])]
-        sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i])]
+    for i in tqdm(range(length)):
+        try:
+            big_labels[i] = np.eye(big_class)[big.index(big_label[i])]
+            sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i])]
+        except ValueError:
+            raise ValueError("[-] key error", big_label[i], sub_label[i])
 
     return big_labels, sub_labels
 
