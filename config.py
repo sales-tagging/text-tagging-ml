@@ -41,7 +41,8 @@ def export_config(fn='config.txt'):
 network_arg = add_arg_group('Network')
 network_arg.add_argument('--mode', type=str, default='non-static', choices=['static', 'non-static'])
 network_arg.add_argument('--model', type=str, default='charcnn', choices=['charcnn', 'charrnn'])
-network_arg.add_argument('--n_classes', type=int, default=1)
+network_arg.add_argument('--n_big_classes', type=int, default=7)
+network_arg.add_argument('--n_sub_classes', type=int, default=39)
 network_arg.add_argument('--use_pre_trained_embeds', type=str, default='c2v', choices=['w2v', 'c2v'],
                          help='using Word/Char2Vec as embedding.')
 network_arg.add_argument('--n_gru_cells', type=int, default=256, help='the number of CuDNNGRU cells')
@@ -66,8 +67,8 @@ data_arg = add_arg_group('DataSet')
 data_arg.add_argument('--embed_size', type=int, default=256, help='the size of Doc2Vec embedding vector')
 data_arg.add_argument('--vocab_size', type=int, default=391587, help='default is w2v vocab size')
 data_arg.add_argument('--character_size', type=int, default=251, help='number of korean chars')
-data_arg.add_argument('--sequence_length', type=int, default=400,
-                      help='the length of the sentence, default is c2v max words cnt')
+data_arg.add_argument('--sequence_length', type=int, default=400, help='the length of the sentence.')
+data_arg.add_argument('--title_length', type=int, default=100, help='the length of the title')
 # For Word2Vec, sequence_length should be 140
 # Fro Char2Vec, sequence_length should be 400
 data_arg.add_argument('--batch_size', type=int, default=256)
