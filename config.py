@@ -23,7 +23,8 @@ def get_config():
 def export_config(fn='config.txt'):
     params, _ = get_config()
 
-    param_list = ['mode', 'model', 'n_classes', 'model', 'fc_unit', 'drop_out', 'use_leaky_relu', 'act_threshold',
+    param_list = ['mode', 'model', 'n_big_classes', 'n_sub_classes', 'model', 'fc_unit', 'drop_out',
+                  'use_leaky_relu', 'act_threshold',
                   'score_function', 'use_multi_channel', 'use_se_module', 'se_ratio', 'se_type',
                   'embed_size', 'sequence_length', 'batch_size',
                   'optimizer', 'grad_clip', 'lr', 'lr_decay']
