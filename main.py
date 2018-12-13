@@ -66,7 +66,7 @@ def label_convert(big_label, sub_label, length):
     for i in tqdm(range(length)):
         try:
             big_labels[i] = np.eye(big_class)[big.index(big_label[i])]
-            sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i])]
+            sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i].encode('utf8'))]
         except ValueError:
             raise ValueError("[-] key error", big_label[i], sub_label[i])
 
