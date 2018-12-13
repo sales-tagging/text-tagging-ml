@@ -43,7 +43,7 @@ def load_trained_embeds(embed_mode='char'):
     return vec
 
 
-def label_convert(big_label, sub_label):
+def label_convert(big_label, sub_label, length):
     big = ['business', 'current-affairs', 'culture', 'tech', 'life', 'special']
     sub = ['business ',
            'marketing', 'investment',
@@ -60,10 +60,10 @@ def label_convert(big_label, sub_label):
            ]
 
     big_class, sub_class = len(big), len(sub)
-    big_labels = np.zeros((big_label.shape[0], big_class), np.uint8)
-    sub_labels = np.zeros((sub_label.shape[0], sub_class), np.uint8)
+    big_labels = np.zeros((length, big_class), np.uint8)
+    sub_labels = np.zeros((length, sub_class), np.uint8)
 
-    for i in range(big_label.shape[0]):
+    for i in range(length):
         big_labels[i] = np.eye(big_class)[big.index(big_labels[i])]
         sub_labels[i] = np.eye(sub_class)[sub.index(sub_labels[i])]
 
@@ -200,7 +200,7 @@ if __name__ == '__main__':
             print("  [*] max length : %d" % max_length[1])
             print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
 
-    y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels)
+    y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels, x_sent_data.shape[0])
 
     ds = None
 
