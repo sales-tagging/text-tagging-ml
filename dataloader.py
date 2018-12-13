@@ -443,7 +443,7 @@ class DataIterator:
         self.y_sub = y[1]
 
         self.batch_size = batch_size
-        self.num_examples = num_examples = x.shape[0]
+        self.num_examples = num_examples = self.x_sent.shape[0]
         self.num_batches = num_examples // batch_size
         self.pointer = 0
 
