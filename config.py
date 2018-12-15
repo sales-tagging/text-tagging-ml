@@ -43,7 +43,7 @@ network_arg = add_arg_group('Network')
 network_arg.add_argument('--mode', type=str, default='non-static', choices=['static', 'non-static'])
 network_arg.add_argument('--model', type=str, default='charcnn', choices=['charcnn', 'charrnn'])
 network_arg.add_argument('--n_big_classes', type=int, default=6)
-network_arg.add_argument('--n_sub_classes', type=int, default=38)
+network_arg.add_argument('--n_sub_classes', type=int, default=40)
 network_arg.add_argument('--use_pre_trained_embeds', type=str, default='c2v', choices=['w2v', 'c2v'],
                          help='using Word/Char2Vec as embedding.')
 network_arg.add_argument('--n_gru_cells', type=int, default=256, help='the number of CuDNNGRU cells')

@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class TextCNN:
 
-    def __init__(self, s, n_big_classes=6, n_sub_classes=38, batch_size=128, epochs=101,
+    def __init__(self, s, n_big_classes=6, n_sub_classes=40, batch_size=128, epochs=101,
                  vocab_size=122351 + 1, sequence_length=400, title_length=100, n_dims=300, seed=1337, optimizer='adam',
                  kernel_sizes=(10, 9, 7, 5, 3), n_filters=256, fc_unit=1024,
                  lr=8e-4, lr_lower_boundary=2e-5, lr_decay=.95, l2_reg=5e-4, th=1e-6, grad_clip=5.,
