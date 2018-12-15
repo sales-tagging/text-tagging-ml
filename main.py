@@ -5,6 +5,8 @@ import numpy as np
 import tensorflow as tf
 
 from tqdm import tqdm
+from collections import OrderedDict
+from sklearn.model_selection import train_test_split
 
 from model import TextCNN
 from config import get_config, export_config
@@ -28,11 +30,11 @@ tf.set_random_seed(config.seed)
 
 # Category Information
 # Big Category
-big = [
+big_cate = [
     'business', 'current-affairs', 'culture', 'tech', 'life', 'special'
 ]
 # Sub Category
-sub = [
+sub_cate = [
     'business',
     'marketing', 'investment',
     'current-affairs',
@@ -47,6 +49,8 @@ sub = [
     'special',
     'gag', 'interview',
 ]
+
+label_big_cnt, label_sub_cnt = OrderedDict(), OrderedDict()
 
 
 def load_trained_embeds(embed_mode='char'):
@@ -72,17 +76,17 @@ def label_convert(big_label, sub_label, length):
     :param length: total length of the data
     :return: one-hot-encoded labels
     """
-    global big
-    global sub
+    global big_cate
+    global sub_cate
 
-    big_class, sub_class = len(big), len(sub)
+    big_class, sub_class = len(big_cate), len(sub_cate)
     big_labels = np.zeros((length, big_class), np.uint8)
     sub_labels = np.zeros((length, sub_class), np.uint8)
 
     for i in tqdm(range(length)):
-        big_labels[i] = np.eye(big_class)[big.index(big_label[i])]
+        big_labels[i] = np.eye(big_class)[big_cate.index(big_label[i])]
         try:
-            sub_labels[i] = np.eye(sub_class)[sub.index(sub_label[i])]
+            sub_labels[i] = np.eye(sub_class)[sub_cate.index(sub_label[i])]
         except ValueError:
             raise ValueError("[-] key error", big_label[i], sub_label[i])
 
@@ -96,27 +100,73 @@ def data_visualization(y_big, y_sub):
     :param y_sub: sub category (one-hot-encoded) data
     :return: None
     """
-    global big
-    global sub
-
-    label_big_cnt, label_sub_cnt = dict(), dict()
+    global big_cate, sub_cate
+    global label_big_cnt, label_sub_cnt
 
     # initializing dict
-    for b in big:
+    for b in big_cate:
         label_big_cnt[b] = 0
-    for s in sub:
+    for s in sub_cate:
         label_sub_cnt[s] = 0
 
     for yb in y_big:
-        label_big_cnt[big[np.where(yb == 1)[0][0]]] += 1
+        label_big_cnt[big_cate[np.where(yb == 1)[0][0]]] += 1
     for ys in y_sub:
-        label_sub_cnt[sub[np.where(ys == 1)[0][0]]] += 1
+        label_sub_cnt[sub_cate[np.where(ys == 1)[0][0]]] += 1
 
     print("[*] Big Category data distribution")
     print(label_big_cnt)
 
     print("[*] Sub Category data distribution")
     print(label_sub_cnt)
+
+
+def data_split(x_sent, x_title, y_big, y_sub, split_rate):
+    """
+    split data at the level of sub category % data must be sorted
+    :param x_sent: articles
+    :param x_title: titles
+    :param y_big: big category
+    :param y_sub: sub category
+    :param split_rate: train/test split rate
+    :return:
+    """
+    global config
+    global sub_cate, label_sub_cnt
+
+    tr_sents, va_sents = list(), list()
+    tr_titles, va_titles = list(), list()
+    tr_bigs, va_bigs = list(), list()
+    tr_subs, va_subs = list(), list()
+
+    prev_cnt, cur_cnt = 0, 0
+    for k, v in label_sub_cnt.items():
+        prev_cnt = cur_cnt
+        cur_cnt += v
+
+        st_tr, st_va, yb_tr, yb_va = train_test_split(x_sent[prev_cnt:cur_cnt], y_big[prev_cnt:cur_cnt],
+                                                      test_size=split_rate, random_state=config.seed)
+
+        tr_sents.append(st_tr)
+        va_sents.append(st_va)
+        tr_bigs.append(yb_tr)
+        va_bigs.append(yb_va)
+
+        ti_tr, ti_va, ys_tr, ys_va = train_test_split(x_title[prev_cnt:cur_cnt], y_sub[prev_cnt:cur_cnt],
+                                                      test_size=split_rate, random_state=config.seed)
+
+        tr_titles.append(ti_tr)
+        va_titles.append(ti_va)
+        tr_subs.append(ys_tr)
+        va_subs.append(ys_va)
+
+        if config.verbose:
+            print("Sub Category : ", k)
+            print(st_tr.shape, st_va.shape, yb_tr.shape, yb_va.shape,
+                  ti_tr.shape, ti_va.shape, ys_tr.shape, ys_va.shape)
+
+    return np.array(tr_sents), np.array(va_sents), np.array(tr_titles), np.array(va_titles), \
+        np.array(tr_bigs), np.array(va_bigs), np.array(tr_subs), np.array(va_subs)
 
 
 if __name__ == '__main__':
@@ -221,22 +271,9 @@ if __name__ == '__main__':
     if config.verbose:
         print("[*] sentence to %s index conversion finish!" % config.use_pre_trained_embeds)
 
-    # shuffle
-    perm = np.arange(x_sent_data.shape[0])
-    np.random.shuffle(perm)
-
-    x_sent_data = x_sent_data[perm]
-    x_title_data = x_title_data[perm]
-    y_big_data = y_big_data[perm]
-    y_sub_data = y_sub_data[perm]
-
-    # split
-    n_split = int(x_sent_data.shape[0] * (1. - config.test_size))
-
-    x_sent_tr, x_sent_va = x_sent_data[:n_split], x_sent_data[n_split:]
-    x_title_tr, x_title_va = x_title_data[:n_split], x_title_data[n_split:]
-    y_big_tr, y_big_va = y_big_data[:n_split], y_big_data[n_split:]
-    y_sub_tr, y_sub_va = y_sub_data[:n_split], y_sub_data[n_split:]
+    # train/test split
+    x_sent_tr, x_sent_va, x_title_tr, x_title_va, y_big_tr, y_big_va, y_sub_tr, y_sub_va = \
+        data_split(x_sent_data, x_title_data, y_big_data, y_sub_data, config.test_size)
 
     if config.verbose:
         print("[*] train/test %d/%d(%.2f/%.2f) split!" % (len(x_sent_tr), len(x_sent_va),
