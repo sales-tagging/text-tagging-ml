@@ -4,12 +4,36 @@ import tensorflow as tf
 
 class TextCNN:
 
-    def __init__(self, s, n_big_classes=6, n_sub_classes=40, batch_size=128, epochs=101,
-                 vocab_size=122351 + 1, sequence_length=400, title_length=100, n_dims=300, seed=1337, optimizer='adam',
-                 kernel_sizes=(10, 9, 7, 5, 3), n_filters=256, fc_unit=1024,
-                 lr=8e-4, lr_lower_boundary=2e-5, lr_decay=.95, l2_reg=5e-4, th=1e-6, grad_clip=5.,
-                 summary=None, mode='static', w2v_embeds=None,
-                 use_se_module=False, se_radio=16, se_type='A', use_multi_channel=False, score_function='softmax'):
+    def __init__(self,
+                 s,                              # TF Session
+                 n_big_classes=6,                # number of big categories
+                 n_sub_classes=40,               # number of sub categories
+                 batch_size=128,                 # batch_size
+                 epochs=101,                     # training epochs
+                 vocab_size=122351 + 1,          # number of words
+                 sequence_length=400,            # maximum article length
+                 title_length=100,               # maximum title length
+                 n_dims=300,                     # size of dimension for the embeddings
+                 seed=1337,                      # random seed for reproducibility
+                 optimizer='adam',               # name of Optimizer
+                 kernel_sizes=(10, 9, 7, 5, 3),  # Convolution 1D kernel size
+                 n_filters=256,                  # Convolution 1D filter size
+                 fc_unit=1024,                   # number of units of FC layer
+                 lr=8e-4,                        # learning rate
+                 lr_lower_boundary=2e-5,         # minimum learning rate
+                 lr_decay=.95,                   # learning rate decay factor
+                 l2_reg=5e-4,                    # l2 regularizing factor
+                 th=1e-6,                        # threshold
+                 grad_clip=5.,                   # norm of gradient clipping
+                 summary=None,                   # TF summary file name
+                 mode='static',                  # embedding type (non-static or static or rand)
+                 w2v_embeds=None,                # Word2Vec model object
+                 use_se_module=False,            # SE block
+                 se_radio=16,                    # SE ratio
+                 se_type='A',                    # SE type
+                 use_multi_channel=False,        # multichannel
+                 score_function='softmax'        # scoring function
+                 ):
         self.s = s
         self.n_dims = n_dims
         self.n_big_classes = n_big_classes
