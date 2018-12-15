@@ -10,7 +10,6 @@ from model import TextCNN
 from config import get_config, export_config
 from dataloader import Word2VecEmbeddings, Char2VecEmbeddings, DataLoader, DataIterator
 
-
 parser = argparse.ArgumentParser(description='train/test movie review classification model')
 parser.add_argument('--checkpoint', type=str, help='pre-trained model', default=None)
 parser.add_argument('--refine_data', type=bool, help='solving data imbalance problem', default=False)
@@ -23,8 +22,31 @@ refine_data = args.refine_data
 # Configuration
 config, _ = get_config()
 
+# random seed for reproducibility
 np.random.seed(config.seed)
 tf.set_random_seed(config.seed)
+
+# Category Information
+# Big Category
+big = [
+    'business', 'current-affairs', 'culture', 'tech', 'life', 'special'
+]
+# Sub Category
+sub = [
+    'business',
+    'marketing', 'investment',
+    'current-affairs',
+    'economy', 'international', 'military', 'society', 'politics', 'religion',
+    'culture',
+    'game', 'education', 'otaku', 'manhwa', 'sports', 'animation', 'entertainment', 'movie', 'liberal-arts', 'music',
+    'book', 'study',
+    'tech',
+    'sns', 'software', 'technology', 'science', 'style', 'medicine', '%ed%99%98%ea%b2%bd',  # 환경
+    'life',
+    'health', 'parents', 'travel', 'english', 'food',
+    'special',
+    'gag', 'interview',
+]
 
 
 def load_trained_embeds(embed_mode='char'):
@@ -44,20 +66,14 @@ def load_trained_embeds(embed_mode='char'):
 
 
 def label_convert(big_label, sub_label, length):
-    big = ['business', 'current-affairs', 'culture', 'tech', 'life', 'special']
-    sub = ['business',
-           'marketing', 'investment',
-           'current-affairs',
-           'economy', 'international', 'military', 'society', 'politics', 'religion',
-           'culture',
-           'game', 'education', 'otaku', 'manhwa', 'sports', 'animation', 'entertainment', 'movie', 'liberal-arts', 'music', 'book', 'study',
-           # 'tech',
-           'sns', 'software', 'technology', 'science', 'style', 'medicine', '%ed%99%98%ea%b2%bd',  # 환경
-           'life',
-           'health', 'parents', 'travel', 'english', 'food',
-           # 'special'
-           'gag', 'interview',
-           ]
+    """
+    :param big_label: big category label
+    :param sub_label: sub category label
+    :param length: total length of the data
+    :return: one-hot-encoded labels
+    """
+    global big
+    global sub
 
     big_class, sub_class = len(big), len(sub)
     big_labels = np.zeros((length, big_class), np.uint8)
@@ -71,6 +87,36 @@ def label_convert(big_label, sub_label, length):
             raise ValueError("[-] key error", big_label[i], sub_label[i])
 
     return big_labels, sub_labels
+
+
+def data_visualization(y_big, y_sub):
+    """
+    visualizing & summarizing the data distribution
+    :param y_big: big category (one-hot-encoded) data
+    :param y_sub: sub category (one-hot-encoded) data
+    :return: None
+    """
+    global big
+    global sub
+
+    label_big_cnt, label_sub_cnt = dict(), dict()
+
+    # initializing dict
+    for b in big:
+        label_big_cnt[b] = 0
+    for s in sub:
+        label_sub_cnt[s] = 0
+
+    for yb in y_big:
+        label_big_cnt[big[np.where(yb == 1)[0][0]]] += 1
+    for ys in y_sub:
+        label_sub_cnt[sub[np.where(ys == 1)[0][0]]] += 1
+
+    print("[*] Big Category data distribution")
+    print(label_big_cnt)
+
+    print("[*] Sub Category data distribution")
+    print(label_sub_cnt)
 
 
 if __name__ == '__main__':
@@ -164,7 +210,11 @@ if __name__ == '__main__':
         print("  [*] max length : %d" % max_length[1])
         print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
 
+    # one-hot-encoded
     y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels, x_sent_data.shape[0])
+
+    # data distribution
+    data_visualization(y_big_data, y_sub_data)
 
     ds = None
 
