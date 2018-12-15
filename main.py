@@ -165,8 +165,8 @@ def data_split(x_sent, x_title, y_big, y_sub, split_rate):
             print(st_tr.shape, st_va.shape, yb_tr.shape, yb_va.shape,
                   ti_tr.shape, ti_va.shape, ys_tr.shape, ys_va.shape)
 
-    return np.array(tr_sents), np.array(va_sents), np.array(tr_titles), np.array(va_titles), \
-        np.array(tr_bigs), np.array(va_bigs), np.array(tr_subs), np.array(va_subs)
+    return np.concatenate(tr_sents), np.concatenate(va_sents), np.concatenate(tr_titles), np.concatenate(va_titles), \
+        np.concatenate(tr_bigs), np.concatenate(va_bigs), np.concatenate(tr_subs), np.concatenate(va_subs)
 
 
 if __name__ == '__main__':
