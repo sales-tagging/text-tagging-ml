@@ -101,52 +101,6 @@ if __name__ == '__main__':
                             is_analyzed=False,
                             use_save=True,
                             config=config)  # DataSet Loader
-
-        ds_len = len(ds)
-
-        x_sent_data = np.zeros((ds_len, config.sequence_length), dtype=np.uint8)
-        x_title_data = np.zeros((ds_len, config.title_length), dtype=np.uint8)
-
-        sen_len, title_len = list(), list()
-        min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
-        for i in tqdm(range(ds_len)):
-            sentence = ' '.join(ds.sentences[i]).strip('\n')
-            title = ' '.join(ds.titles[i]).strip('\n')
-
-            sentence_length = len(sentence)
-
-            if sentence_length < min_length[0]:
-                min_length[0] = sentence_length
-            if sentence_length > max_length[0]:
-                max_length[0] = sentence_length
-
-            title_length = len(title)
-
-            if title_length < min_length[1]:
-                min_length[1] = title_length
-            if title_length > max_length[1]:
-                max_length[1] = title_length
-
-            sen_len.append(sentence_length)
-            title_len.append(title_length)
-
-            sent = vectors.decompose_str_as_one_hot(sentence, warning=False)[:config.sequence_length]
-            title = vectors.decompose_str_as_one_hot(title, warning=False)[:config.title_length]
-
-            x_sent_data[i] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
-            x_title_data[i] = np.pad(title, (0, config.title_length - len(title)), 'constant', constant_values=0)
-
-        if config.verbose:
-            print("[*] Total %d samples (training)" % x_sent_data.shape[0])
-            print("  [*] Article")
-            print("  [*] min length : %d" % min_length[0])
-            print("  [*] max length : %d" % max_length[0])
-            print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
-
-            print("  [*] Title")
-            print("  [*] min length : %d" % min_length[1])
-            print("  [*] max length : %d" % max_length[1])
-            print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
     else:  # Word2Vec
         ds = DataLoader(file=config.processed_dataset,
                         n_big_classes=config.n_big_classes,
@@ -156,52 +110,59 @@ if __name__ == '__main__':
                         use_save=False,
                         config=config)  # DataSet Loader
 
-        ds_len = len(ds)
+    ds_len = len(ds)
 
-        x_sent_data = np.zeros((ds_len, config.sequence_length), dtype=np.int32)
-        x_title_data = np.zeros((ds_len, config.title_length), dtype=np.int32)
+    x_sent_data = np.zeros((ds_len, config.sequence_length),
+                           dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
+    x_title_data = np.zeros((ds_len, config.title_length),
+                            dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
 
-        sen_len, title_len = list(), list()
-        min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
-        for i in tqdm(range(ds_len)):
-            sent = ds.sentences[i][:config.sequence_length]
-            title = ds.sentences[i][:config.title_length]
+    sen_len, title_len = list(), list()
+    min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
+    for i in tqdm(range(ds_len)):
+        if config.use_pre_trained_embeds == 'c2v':
+            sentence = ' '.join(ds.sentences[i]).strip('\n')
+            title = ' '.join(ds.titles[i]).strip('\n')
+        else:
+            sentence = ds.sentences[i][:config.sequence_length]
+            title = ds.titles[i][:config.title_length]
 
-            sentence_length = len(sent)
+        sentence_length = len(sentence)
+        if sentence_length < min_length[0]:
+            min_length[0] = sentence_length
+        if sentence_length > max_length[0]:
+            max_length[0] = sentence_length
 
-            if sentence_length < min_length[0]:
-                min_length[0] = sentence_length
-            if sentence_length > max_length[0]:
-                max_length[0] = sentence_length
+        title_length = len(title)
+        if title_length < min_length[1]:
+            min_length[1] = title_length
+        if title_length > max_length[1]:
+            max_length[1] = title_length
 
-            title_length = len(title)
+        sen_len.append(sentence_length)
+        title_len.append(title_length)
 
-            if title_length < min_length[1]:
-                min_length[1] = title_length
-            if title_length > max_length[1]:
-                max_length[1] = title_length
+        if config.use_pre_trained_embeds == 'c2v':
+            sent = vectors.decompose_str_as_one_hot(sentence, warning=False)[:config.sequence_length]
+            title = vectors.decompose_str_as_one_hot(title, warning=False)[:config.title_length]
+        else:
+            sent = vectors.words_to_index(sentence)
+            title = vectors.words_to_index(title)
 
-            sen_len.append(sentence_length)
-            title_len.append(title_length)
+        x_sent_data[i] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
+        x_title_data[i] = np.pad(title, (0, config.title_length - len(title)), 'constant', constant_values=0)
 
-            x_sent_data[i] = np.pad(vectors.words_to_index(sent),
-                                    (0, config.sequence_length - len(sent)), 'constant',
-                                    constant_values=config.vocab_size)
-            x_title_data[i] = np.pad(vectors.words_to_index(title),
-                                     (0, config.title_length - len(title)), 'constant',
-                                     constant_values=config.vocab_size)
+    if config.verbose:
+        print("[*] Total %d samples (training)" % x_sent_data.shape[0])
+        print("  [*] Article")
+        print("  [*] min length : %d" % min_length[0])
+        print("  [*] max length : %d" % max_length[0])
+        print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
 
-        if config.verbose:
-            print("[*] Total %d samples (training)" % x_sent_data.shape[0])
-            print("  [*] Article")
-            print("  [*] min length : %d" % min_length[0])
-            print("  [*] max length : %d" % max_length[0])
-            print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
-
-            print("  [*] Title")
-            print("  [*] min length : %d" % min_length[1])
-            print("  [*] max length : %d" % max_length[1])
-            print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
+        print("  [*] Title")
+        print("  [*] min length : %d" % min_length[1])
+        print("  [*] max length : %d" % max_length[1])
+        print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
 
     y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels, x_sent_data.shape[0])
 
