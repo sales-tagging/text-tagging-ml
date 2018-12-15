@@ -257,11 +257,11 @@ class DataLoader:
 
     @staticmethod
     def emo(x, n_rep=3):
-        return emoticon_normalize(x, n_repeats=n_rep)
+        return emoticon_normalize(x, num_repeats=n_rep)
 
     @staticmethod
     def rep(x, n_rep=3):
-        return repeat_normalize(x, n_repeats=n_rep)
+        return repeat_normalize(x, num_repeats=n_rep)
 
     def normalize(self, x, n_rep=3):
         return self.rep(self.emo(x, n_rep), n_rep) if self.use_normalize else x
