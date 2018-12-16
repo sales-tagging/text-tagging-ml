@@ -26,7 +26,7 @@ def export_config(fn='config.txt'):
     param_list = ['mode', 'model', 'n_big_classes', 'n_sub_classes', 'model', 'fc_unit', 'drop_out',
                   'use_leaky_relu', 'act_threshold',
                   'score_function', 'use_multi_channel', 'use_se_module', 'se_ratio', 'se_type',
-                  'embed_size', 'sequence_length', 'batch_size',
+                  'embed_size', 'sequence_length', 'title_length', 'batch_size',
                   'optimizer', 'grad_clip', 'lr', 'lr_decay']
     if getattr(params, 'model') == 'charcnn':
         param_list.extend(['kernel_size', 'filter_size'])
@@ -69,8 +69,8 @@ data_arg = add_arg_group('DataSet')
 data_arg.add_argument('--embed_size', type=int, default=256, help='the size of Char2Vec/Word2Vec embedding')
 data_arg.add_argument('--vocab_size', type=int, default=391587, help='default is w2v vocab size')
 data_arg.add_argument('--character_size', type=int, default=251, help='number of korean chars')
-data_arg.add_argument('--sequence_length', type=int, default=400, help='the length of the sentence.')
-data_arg.add_argument('--title_length', type=int, default=100, help='the length of the title')
+data_arg.add_argument('--sequence_length', type=int, default=500, help='the length of the sentence.')
+data_arg.add_argument('--title_length', type=int, default=150, help='the length of the title')
 # For Word2Vec, sequence_length should be 140
 # Fro Char2Vec, sequence_length should be 400
 data_arg.add_argument('--batch_size', type=int, default=128)
