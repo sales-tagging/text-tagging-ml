@@ -30,8 +30,9 @@ class TextCNN:
                  w2v_embeds=None,                # Word2Vec model object
                  use_se_module=False,            # SE block
                  se_radio=16,                    # SE ratio
-                 se_type='A',                    # SE type
-                 use_multi_channel=False,        # multichannel
+                 se_type='C',                    # SE type
+                 use_multi_channel=True,         # multichannel
+                 use_spatial_dropout=False,      # spatial dropout
                  score_function='softmax'        # scoring function
                  ):
         self.s = s
@@ -72,6 +73,9 @@ class TextCNN:
 
         # Multichannel
         self.use_multi_channel = use_multi_channel
+
+        # Spatial Dropout
+        self.use_spatial_dropout = use_spatial_dropout
 
         # set random seed
         np.random.seed(self.seed)
@@ -227,119 +231,73 @@ class TextCNN:
         with tf.variable_scope('sentence_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.sent_embeddings[i], self.x_sent)
-                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
-                embed = tf.layers.dropout(embed, self.do_rate)
+                if self.use_spatial_dropout:
+                    embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                else:
+                    embed = tf.layers.dropout(embed, self.do_rate)
                 sent_embeds.append(embed)
 
         with tf.variable_scope('title_embeddings'):
             for i in range(self.n_embeds):
                 embed = tf.nn.embedding_lookup(self.title_embeddings[i], self.x_title)
-                # embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
-                embed = tf.layers.dropout(embed, self.do_rate)
+                if self.use_spatial_dropout:
+                    embed = tf.keras.layers.SpatialDropout1D(self.do_rate)(embed)
+                else:
+                    embed = tf.layers.dropout(embed, self.do_rate)
                 title_embeds.append(embed)
 
         concat_pool = []
-        with tf.variable_scope('sentence_feature_extract'):
-            pooled_outs = []
-            for idx, embed in enumerate(sent_embeds):
-                for i, fs in enumerate(self.kernel_sizes):
-                    scope_name = "conv_layer-%d-%d-%d" % (idx, fs, i) if self.use_multi_channel \
-                        else "conv_layer-%d-%d" % (fs, i)
+        for _in in ["sentence", "title"]:
+            _in_embeds = sent_embeds if _in == "sentence" else title_embeds
+            with tf.variable_scope('%s_feature_extract' % _in):
+                pooled_outs = []
+                for idx, embed in enumerate(_in_embeds):
+                    for i, fs in enumerate(self.kernel_sizes):
+                        scope_name = "conv_layer-%d-%d-%d" % (idx, fs, i) if self.use_multi_channel \
+                            else "conv_layer-%d-%d" % (fs, i)
 
-                    with tf.variable_scope(scope_name):
-                        """
-                        Try 1 : Conv1D-(Threshold)ReLU-drop_out-k_max_pool
-                        """
+                        with tf.variable_scope(scope_name):
+                            """
+                            Try 1 : Conv1D-(Threshold)ReLU-k_max_pool
+                            """
 
-                        x = tf.layers.conv1d(
-                            embed,
-                            filters=self.n_filters,
-                            kernel_size=fs,
-                            kernel_initializer=self.he_uni,
-                            kernel_regularizer=self.reg,
-                            padding='VALID',
-                            name='conv1d'
-                        )
-                        x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
+                            x = tf.layers.conv1d(
+                                embed,
+                                filters=self.n_filters,
+                                kernel_size=fs,
+                                kernel_initializer=self.he_uni,
+                                kernel_regularizer=self.reg,
+                                padding='VALID',
+                                name='conv1d'
+                            )
+                            x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
 
-                        if self.use_se_module and not self.se_type == 'B':
-                            x = self.se_module(x, x.get_shape()[-1])
+                            if self.use_se_module and not self.se_type == 'B':
+                                x = self.se_module(x, x.get_shape()[-1])
 
-                        x = tf.nn.top_k(tf.transpose(x, [0, 2, 1]), k=3, sorted=False)[0]
-                        x = tf.transpose(x, [0, 2, 1])
+                            x = tf.nn.top_k(tf.transpose(x, [0, 2, 1]), k=3, sorted=False)[0]
+                            x = tf.transpose(x, [0, 2, 1])
 
-                        pooled_outs.append(x)
+                            pooled_outs.append(x)
 
-            x = tf.concat(pooled_outs, axis=1)  # (batch, 3 * kernel_sizes, 256)
+                x = tf.concat(pooled_outs, axis=1)  # (batch, 3 * kernel_sizes, 256)
 
-            if self.use_se_module and not self.se_type == 'A':
-                x = self.se_module(x, x.get_shape()[-1])
+                if self.use_se_module and not self.se_type == 'A':
+                    x = self.se_module(x, x.get_shape()[-1])
 
-            x = tf.layers.flatten(x)
-            x = tf.layers.dropout(x, self.do_rate)
+                x = tf.layers.flatten(x)
+                x = tf.layers.dropout(x, self.do_rate)
 
-            x = tf.layers.dense(
-                x,
-                units=self.fc_unit,
-                kernel_initializer=self.he_uni,
-                kernel_regularizer=self.reg,
-                name='fc1'
-            )
-            x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
-            # x = tf.layers.dropout(x, self.do_rate)
+                x = tf.layers.dense(
+                    x,
+                    units=self.fc_unit,
+                    kernel_initializer=self.he_uni,
+                    kernel_regularizer=self.reg,
+                    name='fc1'
+                )
+                x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
 
-            concat_pool.append(x)
-
-        with tf.variable_scope('title_feature_extract'):
-            pooled_outs = []
-            for idx, embed in enumerate(title_embeds):
-                for i, fs in enumerate(self.kernel_sizes):
-                    scope_name = "conv_layer-%d-%d-%d" % (idx, fs, i) if self.use_multi_channel \
-                        else "conv_layer-%d-%d" % (fs, i)
-
-                    with tf.variable_scope(scope_name):
-                        """
-                        Try 1 : Conv1D-(Threshold)ReLU-drop_out-k_max_pool
-                        """
-
-                        x = tf.layers.conv1d(
-                            embed,
-                            filters=self.n_filters,
-                            kernel_size=fs,
-                            kernel_initializer=self.he_uni,
-                            kernel_regularizer=self.reg,
-                            padding='VALID',
-                            name='conv1d'
-                        )
-                        x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
-
-                        if self.use_se_module and not self.se_type == 'B':
-                            x = self.se_module(x, x.get_shape()[-1])
-
-                        x = tf.nn.top_k(tf.transpose(x, [0, 2, 1]), k=3, sorted=False)[0]
-                        x = tf.transpose(x, [0, 2, 1])
-
-                        pooled_outs.append(x)
-
-            x = tf.concat(pooled_outs, axis=1)  # (batch, 3 * kernel_sizes, 256)
-
-            if self.use_se_module and not self.se_type == 'A':
-                x = self.se_module(x, x.get_shape()[-1])
-
-            x = tf.layers.flatten(x)
-            x = tf.layers.dropout(x, self.do_rate)
-
-            x = tf.layers.dense(
-                x,
-                units=self.fc_unit,
-                kernel_initializer=self.he_uni,
-                kernel_regularizer=self.reg,
-                name='fc1'
-            )
-            x = tf.where(tf.less(x, self.th), tf.zeros_like(x), x)
-            # x = tf.layers.dropout(x, self.do_rate)
-
-            concat_pool.append(x)
+                concat_pool.append(x)
 
         x = tf.concat(concat_pool, axis=-1)  # (batch, 3 * kernel_sizes, 256)
         x = tf.layers.dropout(x, self.do_rate)
