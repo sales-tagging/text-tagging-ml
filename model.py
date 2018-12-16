@@ -120,11 +120,11 @@ class TextCNN:
         # loss
         big_cat, sub_cat = self.build_model()
 
-        pred_big_cat = tf.nn.softmax(big_cat)
-        self.acc_big_cat = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred_big_cat, 1), tf.argmax(self.y_big, 1)),
+        self.pred_big_cat = tf.nn.softmax(big_cat)
+        self.acc_big_cat = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(self.pred_big_cat, 1), tf.argmax(self.y_big, 1)),
                                                   dtype=tf.float32))
-        pred_sub_cat = tf.nn.softmax(sub_cat)
-        self.acc_sub_cat = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred_sub_cat, 1), tf.argmax(self.y_sub, 1)),
+        self.pred_sub_cat = tf.nn.softmax(sub_cat)
+        self.acc_sub_cat = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(self.pred_sub_cat, 1), tf.argmax(self.y_sub, 1)),
                                                   dtype=tf.float32))
 
         self.p_big_cat_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=big_cat,
