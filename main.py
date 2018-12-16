@@ -121,6 +121,47 @@ def data_visualization(y_big, y_sub):
     print(label_sub_cnt)
 
 
+def data_confusion_matrix(y_pred, y_true, labels, normalize=True):
+    import itertools
+    import matplotlib.pyplot as plt
+    from sklearn.metrics import confusion_matrix
+
+    y_pred = np.array([np.argmax(y, 1) for y in y_pred])
+    y_true = np.array([np.argmax(y, 1) for y in y_true])
+
+    assert y_pred.shape[0] == y_true.shape[0]
+
+    cnf_mat = confusion_matrix(y_pred, y_true)
+    np.set_printoptions(precision=2)
+
+    if normalize:
+        cnf_mat = cnf_mat.astype('float') / cnf_mat.sum(axis=1)[:, np.newaxis]
+
+    plt.figure()
+
+    plt.imshow(cnf_mat, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix")
+    plt.colorbar()
+
+    tick_marks = np.arange(len(labels))
+    plt.xticks(tick_marks, labels, rotation=45)
+    plt.yticks(tick_marks, labels)
+
+    thresh = cnf_mat.max() / 2.
+    for i, j in itertools.product(range(cnf_mat.shape[0]), range(cnf_mat.shape[1])):
+        plt.text(j, i, format(cnf_mat[i, j], '.2f'),
+                 horizontalalignment="center",
+                 color="white" if cnf_mat[i, j] > thresh else "black")
+
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.tight_layout()
+
+    plt.savefig("./confusion_matrix.png")
+
+    plt.show()
+
+
 def data_split(x_sent, x_title, y_big, y_sub, split_rate):
     """
     split data at the level of sub category % data must be sorted
@@ -447,4 +488,58 @@ if __name__ == '__main__':
 
             print("[+] Training Done! Elapsed {:.8f}s".format(end_time - start_time))
         else:  # test
-            pass
+            # validation
+            valid_big_cats, valid_sub_cats = list(), list()
+
+            valid_big_cat_loss, valid_sub_cat_loss = 0., 0.
+            valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
+            valid_score = 0.
+
+            batch_size = config.batch_size
+            valid_iter = x_sent_va.shape[0] // batch_size
+            for i in tqdm(range(0, valid_iter)):
+                v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score, v_pred_big_cat, v_pred_sub_cat = s.run([
+                    model.p_big_cat_loss, model.p_sub_cat_loss,
+                    model.acc_big_cat, model.acc_sub_cat,
+                    model.score,
+                    model.pred_big_cat, model.pred_sub_cat,
+                ],
+                    feed_dict={
+                        model.x_sent: x_sent_va[batch_size * i:batch_size * (i + 1)],
+                        model.x_title: x_title_va[batch_size * i:batch_size * (i + 1)],
+                        model.y_big: y_big_va[batch_size * i:batch_size * (i + 1)],
+                        model.y_sub: y_sub_va[batch_size * i:batch_size * (i + 1)],
+                        model.do_rate: .0,
+                    })
+
+                valid_big_cat_loss += v_bc_loss
+                valid_sub_cat_loss += v_sc_loss
+                valid_big_cat_acc += v_bc_acc
+                valid_sub_cat_acc += v_sc_acc
+                valid_score += v_score
+
+                valid_big_cats.extend(np.argmax(v_pred_big_cat, 1))
+                valid_sub_cats.extend(np.argmax(v_pred_sub_cat, 1))
+
+            valid_big_cat_loss /= valid_iter
+            valid_sub_cat_loss /= valid_iter
+            valid_big_cat_acc /= valid_iter
+            valid_sub_cat_acc /= valid_iter
+            valid_score /= valid_iter
+
+            print("[*] Global step %07d \n" % global_step,
+                  "  [*] Big Category\n"
+                  "\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".format(valid_big_cat_loss, valid_big_cat_acc),
+                  "  [*] Sub Category\n"
+                  "\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".format(valid_sub_cat_loss, valid_sub_cat_acc),
+                  "  [*] Score\n"
+                  "\tvalid_score : {:.8f}".format(valid_score)
+                  )
+
+            # confusion matrix
+
+            # big category
+            data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True)
+
+            # sub category
+            data_confusion_matrix(valid_sub_cats, y_sub_va, labels=sub_cate, normalize=True)
