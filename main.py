@@ -316,9 +316,10 @@ if __name__ == '__main__':
                             use_se_module=config.use_se_module,
                             se_radio=config.se_ratio,
                             se_type=config.se_type,
-                            use_multi_channel=config.use_multi_channel)
+                            use_multi_channel=config.use_multi_channel,
+                            use_spatial_dropout=config.use_spatial_dropout)
         else:
-            raise NotImplementedError("[-] Not Implemented Yet")
+            raise NotImplementedError("[-] Not Supported!")
 
         if config.verbose:
             print("[+] %s model loaded" % config.model)

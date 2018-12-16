@@ -41,7 +41,7 @@ def export_config(fn='config.txt'):
 # Network
 network_arg = add_arg_group('Network')
 network_arg.add_argument('--mode', type=str, default='non-static', choices=['static', 'non-static'])
-network_arg.add_argument('--model', type=str, default='charcnn', choices=['charcnn', 'charrnn'])
+network_arg.add_argument('--model', type=str, default='charcnn', choices=['charcnn'])
 network_arg.add_argument('--n_big_classes', type=int, default=6)
 network_arg.add_argument('--n_sub_classes', type=int, default=40)
 network_arg.add_argument('--use_pre_trained_embeds', type=str, default='c2v', choices=['w2v', 'c2v'],
@@ -54,12 +54,13 @@ network_arg.add_argument('--kernel_size', type=list, default=[10, 9, 7, 5, 3], h
 # For Char2Vec, [10, 9, 7, 5, 3] is recommended
 network_arg.add_argument('--filter_size', type=int, default=256, help='conv1d filter size')
 network_arg.add_argument('--fc_unit', type=int, default=1024)
-network_arg.add_argument('--drop_out', type=float, default=.7, help='dropout rate')
+network_arg.add_argument('--drop_out', type=float, default=.5, help='dropout rate')
+network_arg.add_argument('--use_spatial_dropout', type=bool, default=False)
 network_arg.add_argument('--use_leaky_relu', type=bool, default=False)
 network_arg.add_argument('--act_threshold', type=float, default=1e-6, help='used at ThresholdReLU')
 network_arg.add_argument('--score_function', type=str, default='softmax', choices=['tanh', 'sigmoid', 'softmax'])
-network_arg.add_argument('--use_multi_channel', type=bool, default=False)
-network_arg.add_argument('--use_se_module', type=bool, default=False)
+network_arg.add_argument('--use_multi_channel', type=bool, default=True)
+network_arg.add_argument('--use_se_module', type=bool, default=True)
 network_arg.add_argument('--se_ratio', type=int, default=16)
 network_arg.add_argument('--se_type', type=str, default='C', choices=['A', 'B', 'C'])
 
@@ -78,11 +79,11 @@ data_arg.add_argument('--n_threads', type=int, default=8, help='the number of wo
 # Train/Test hyper-parameters
 train_arg = add_arg_group('Training')
 train_arg.add_argument('--is_train', type=bool, default=True)
-train_arg.add_argument('--epochs', type=int, default=101)
+train_arg.add_argument('--epochs', type=int, default=51)
 train_arg.add_argument('--logging_step', type=int, default=40)
 train_arg.add_argument('--optimizer', type=str, default='adam', choices=['adam', 'sgd', 'adadelta'])
-train_arg.add_argument('--grad_clip', type=float, default=7.)
-train_arg.add_argument('--lr', type=float, default=5e-4)
+train_arg.add_argument('--grad_clip', type=float, default=5.)
+train_arg.add_argument('--lr', type=float, default=8e-4)
 train_arg.add_argument('--lr_decay', type=float, default=.95)
 train_arg.add_argument('--lr_lower_boundary', type=float, default=2e-5)
 train_arg.add_argument('--test_size', type=float, default=.15)
