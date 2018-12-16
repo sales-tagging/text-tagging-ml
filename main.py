@@ -121,13 +121,12 @@ def data_visualization(y_big, y_sub):
     print(label_sub_cnt)
 
 
-def data_confusion_matrix(y_pred, y_true, labels, normalize=True):
+def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="confusion_matrix.png"):
     import itertools
     import matplotlib.pyplot as plt
     from sklearn.metrics import confusion_matrix
 
-    y_pred = np.array([np.argmax(y, 1) for y in y_pred])
-    y_true = np.array([np.argmax(y, 1) for y in y_true])
+    y_true = np.array([np.argmax(y, 0) for y in y_true])[:-1]
 
     assert y_pred.shape[0] == y_true.shape[0]
 
@@ -135,7 +134,7 @@ def data_confusion_matrix(y_pred, y_true, labels, normalize=True):
     np.set_printoptions(precision=2)
 
     if normalize:
-        cnf_mat = cnf_mat.astype('float') / cnf_mat.sum(axis=1)[:, np.newaxis]
+        cnf_mat = cnf_mat.astype('float') / (cnf_mat.sum(axis=1)[:, np.newaxis] + 1e-6)
 
     plt.figure()
 
@@ -157,7 +156,7 @@ def data_confusion_matrix(y_pred, y_true, labels, normalize=True):
     plt.xlabel('Predicted label')
     plt.tight_layout()
 
-    plt.savefig("./confusion_matrix.png")
+    plt.savefig(filename)
 
     plt.show()
 
@@ -539,7 +538,11 @@ if __name__ == '__main__':
             # confusion matrix
 
             # big category
-            data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True)
+            valid_big_cats = np.array(valid_big_cats)
+            data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True,
+                                  filename="confusion_matrix_big_cate.png")
 
             # sub category
-            data_confusion_matrix(valid_sub_cats, y_sub_va, labels=sub_cate, normalize=True)
+            valid_sub_cats = np.array(valid_sub_cats)
+            data_confusion_matrix(valid_sub_cats, y_sub_va, labels=sub_cate, normalize=True,
+                                  filename="confusion_matrix_sub_cate.png")
