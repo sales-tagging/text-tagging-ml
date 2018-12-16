@@ -66,7 +66,7 @@ network_arg.add_argument('--se_type', type=str, default='C', choices=['A', 'B', 
 
 # DataSet
 data_arg = add_arg_group('DataSet')
-data_arg.add_argument('--embed_size', type=int, default=256, help='the size of Doc2Vec embedding vector')
+data_arg.add_argument('--embed_size', type=int, default=256, help='the size of Char2Vec/Word2Vec embedding')
 data_arg.add_argument('--vocab_size', type=int, default=391587, help='default is w2v vocab size')
 data_arg.add_argument('--character_size', type=int, default=251, help='number of korean chars')
 data_arg.add_argument('--sequence_length', type=int, default=400, help='the length of the sentence.')
