@@ -134,7 +134,7 @@ def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="conf
     import matplotlib.pyplot as plt
     from sklearn.metrics import confusion_matrix
 
-    y_true = np.array([np.argmax(y, 0) for y in y_true])[:-1]
+    y_true = np.array([np.argmax(y, 0) for y in y_true])
 
     assert y_pred.shape[0] == y_true.shape[0]
 
@@ -503,7 +503,7 @@ if __name__ == '__main__':
                 valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
                 valid_score = 0.
 
-                batch_size = config.batch_size
+                batch_size = 10
                 valid_iter = x_sent_va.shape[0] // batch_size
                 for i in tqdm(range(0, valid_iter)):
                     v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score, v_pred_big_cat, v_pred_sub_cat = s.run([
@@ -547,9 +547,9 @@ if __name__ == '__main__':
                 # confusion matrix
 
                 # big category
-                # valid_big_cats = np.array(valid_big_cats)
-                # data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True,
-                #                       filename="confusion_matrix_big_cate.png")
+                valid_big_cats = np.array(valid_big_cats)
+                data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True,
+                                      filename="confusion_matrix_big_cate.png")
 
                 # sub category
                 valid_sub_cats = np.array(valid_sub_cats)
