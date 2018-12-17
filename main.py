@@ -15,11 +15,18 @@ from dataloader import Word2VecEmbeddings, Char2VecEmbeddings, DataLoader, DataI
 parser = argparse.ArgumentParser(description='train/test movie review classification model')
 parser.add_argument('--checkpoint', type=str, help='pre-trained model', default=None)
 parser.add_argument('--refine_data', type=bool, help='solving data imbalance problem', default=False)
+parser.add_argument('--inference', type=bool, help='for inference')
+parser.add_argument('--i_title', type=str, help='for title')
+parser.add_argument('--i_content', type=str, help='for content')
 args = parser.parse_args()
 
 # parsed args
 checkpoint = args.checkpoint
 refine_data = args.refine_data
+
+inference = args.inference
+orig_title = args.i_title
+orig_content = args.i_content
 
 # Configuration
 config, _ = get_config()
@@ -121,7 +128,8 @@ def data_visualization(y_big, y_sub):
     print(label_sub_cnt)
 
 
-def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="confusion_matrix.png"):
+def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="confusion_matrix.png",
+                          fig_size=(50, 50)):
     import itertools
     import matplotlib.pyplot as plt
     from sklearn.metrics import confusion_matrix
@@ -136,7 +144,7 @@ def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="conf
     if normalize:
         cnf_mat = cnf_mat.astype('float') / (cnf_mat.sum(axis=1)[:, np.newaxis] + 1e-6)
 
-    plt.figure()
+    plt.figure(figsize=fig_size)
 
     plt.imshow(cnf_mat, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title("Confusion Matrix")
@@ -215,68 +223,350 @@ if __name__ == '__main__':
     # Stage 1 : loading trained embeddings
     vectors = load_trained_embeds(embed_type)
 
-    # Stage 2 : loading tokenize data
-    if config.use_pre_trained_embeds == 'c2v':  # Char2Vec
-        if os.path.isfile(config.processed_dataset):
+    if not inference:
+        # Stage 2 : loading tokenize data
+        if config.use_pre_trained_embeds == 'c2v':  # Char2Vec
+            if os.path.isfile(config.processed_dataset):
+                ds = DataLoader(file=config.processed_dataset,
+                                fn_to_save=None,
+                                load_from='db',
+                                n_big_classes=config.n_big_classes,
+                                n_sub_classes=config.n_sub_classes,
+                                analyzer='char',
+                                is_analyzed=True,
+                                use_save=False,
+                                config=config)  # DataSet Loader
+            else:
+                ds = DataLoader(file=None,
+                                fn_to_save=config.processed_dataset,
+                                load_from='db',
+                                n_big_classes=config.n_big_classes,
+                                n_sub_classes=config.n_sub_classes,
+                                analyzer='char',
+                                is_analyzed=False,
+                                use_save=True,
+                                config=config)  # DataSet Loader
+        else:  # Word2Vec
             ds = DataLoader(file=config.processed_dataset,
-                            fn_to_save=None,
-                            load_from='db',
                             n_big_classes=config.n_big_classes,
                             n_sub_classes=config.n_sub_classes,
-                            analyzer='char',
+                            analyzer=None,
                             is_analyzed=True,
                             use_save=False,
                             config=config)  # DataSet Loader
+
+        ds_len = len(ds)
+
+        x_sent_data = np.zeros((ds_len, config.sequence_length),
+                               dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
+        x_title_data = np.zeros((ds_len, config.title_length),
+                                dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
+
+        sen_len, title_len = list(), list()
+        min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
+        for i in tqdm(range(ds_len)):
+            if config.use_pre_trained_embeds == 'c2v':
+                sentence = ' '.join(ds.sentences[i]).strip('\n')
+                title = ' '.join(ds.titles[i]).strip('\n')
+            else:
+                sentence = ds.sentences[i][:config.sequence_length]
+                title = ds.titles[i][:config.title_length]
+
+            sentence_length = len(sentence)
+            if sentence_length < min_length[0]:
+                min_length[0] = sentence_length
+            if sentence_length > max_length[0]:
+                max_length[0] = sentence_length
+
+            title_length = len(title)
+            if title_length < min_length[1]:
+                min_length[1] = title_length
+            if title_length > max_length[1]:
+                max_length[1] = title_length
+
+            sen_len.append(sentence_length)
+            title_len.append(title_length)
+
+            if config.use_pre_trained_embeds == 'c2v':
+                sent = vectors.decompose_str_as_one_hot(sentence, warning=False)[:config.sequence_length]
+                title = vectors.decompose_str_as_one_hot(title, warning=False)[:config.title_length]
+            else:
+                sent = vectors.words_to_index(sentence)
+                title = vectors.words_to_index(title)
+
+            x_sent_data[i] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
+            x_title_data[i] = np.pad(title, (0, config.title_length - len(title)), 'constant', constant_values=0)
+
+        if config.verbose:
+            print("[*] Total %d samples (training)" % x_sent_data.shape[0])
+            print("  [*] Article")
+            print("  [*] min length : %d" % min_length[0])
+            print("  [*] max length : %d" % max_length[0])
+            print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
+
+            print("  [*] Title")
+            print("  [*] min length : %d" % min_length[1])
+            print("  [*] max length : %d" % max_length[1])
+            print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
+
+        # one-hot-encoded
+        y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels, x_sent_data.shape[0])
+
+        # data distribution
+        data_visualization(y_big_data, y_sub_data)
+
+        ds = None
+
+        if config.verbose:
+            print("[*] sentence to %s index conversion finish!" % config.use_pre_trained_embeds)
+
+        # train/test split
+        x_sent_tr, x_sent_va, x_title_tr, x_title_va, y_big_tr, y_big_va, y_sub_tr, y_sub_va = \
+            data_split(x_sent_data, x_title_data, y_big_data, y_sub_data, config.test_size)
+
+        if config.verbose:
+            print("[*] train/test %d/%d(%.2f/%.2f) split!" % (len(x_sent_tr), len(x_sent_va),
+                                                              1. - config.test_size, config.test_size))
+
+        data_size = x_sent_data.shape[0]
+
+        # DataSet Iterator
+        di = DataIterator(x=[x_sent_tr, x_title_tr], y=[y_big_tr, y_sub_tr], batch_size=config.batch_size)
+
+        if config.device == 'gpu':
+            dev_config = tf.ConfigProto()
+            dev_config.gpu_options.allow_growth = True
         else:
-            ds = DataLoader(file=None,
-                            fn_to_save=config.processed_dataset,
-                            load_from='db',
-                            n_big_classes=config.n_big_classes,
-                            n_sub_classes=config.n_sub_classes,
-                            analyzer='char',
-                            is_analyzed=False,
-                            use_save=True,
-                            config=config)  # DataSet Loader
-    else:  # Word2Vec
-        ds = DataLoader(file=config.processed_dataset,
-                        n_big_classes=config.n_big_classes,
-                        n_sub_classes=config.n_sub_classes,
-                        analyzer=None,
-                        is_analyzed=True,
-                        use_save=False,
-                        config=config)  # DataSet Loader
+            dev_config = None
 
-    ds_len = len(ds)
+        with tf.Session(config=dev_config) as s:
+            if config.model == 'charcnn':
+                # Model Loaded
+                model = TextCNN(s=s,
+                                mode=config.mode,
+                                w2v_embeds=vectors.embeds if not embed_type == 'c2v' else None,
+                                n_big_classes=config.n_big_classes,
+                                n_sub_classes=config.n_sub_classes,
+                                optimizer=config.optimizer,
+                                kernel_sizes=config.kernel_size,
+                                n_filters=config.filter_size,
+                                n_dims=config.embed_size,
+                                vocab_size=config.character_size if embed_type == 'c2v' else config.vocab_size + 1,
+                                sequence_length=config.sequence_length,
+                                title_length=config.title_length,
+                                lr=config.lr,
+                                lr_decay=config.lr_decay,
+                                lr_lower_boundary=config.lr_lower_boundary,
+                                fc_unit=config.fc_unit,
+                                th=config.act_threshold,
+                                grad_clip=config.grad_clip,
+                                summary=config.pretrained,
+                                score_function=config.score_function,
+                                use_se_module=config.use_se_module,
+                                se_radio=config.se_ratio,
+                                se_type=config.se_type,
+                                use_multi_channel=config.use_multi_channel,
+                                use_spatial_dropout=config.use_spatial_dropout)
+            else:
+                raise NotImplementedError("[-] Not Supported!")
 
-    x_sent_data = np.zeros((ds_len, config.sequence_length),
-                           dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
-    x_title_data = np.zeros((ds_len, config.title_length),
-                            dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
+            if config.verbose:
+                print("[+] %s model loaded" % config.model)
 
-    sen_len, title_len = list(), list()
-    min_length, max_length, avg_length = [config.sequence_length, config.title_length], [0, 0], [0, 0]
-    for i in tqdm(range(ds_len)):
+            # Initializing
+            s.run(tf.global_variables_initializer())
+
+            # exporting config
+            export_config()
+
+            # loading checkpoint
+            global_step = 0
+            if checkpoint:
+                print("[*] Reading checkpoints...")
+
+                ckpt = tf.train.get_checkpoint_state(config.pretrained)
+                if ckpt and ckpt.model_checkpoint_path:
+                    # Restores from checkpoint
+                    model.saver.restore(s, ckpt.model_checkpoint_path)
+
+                    global_step = int(ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1])
+                    print("[+] global step : %d" % global_step, " successfully loaded")
+                else:
+                    print('[-] No checkpoint file found')
+
+            start_time = time.time()
+
+            if config.is_train:
+                best_score = 0  # initial value
+                batch_size = config.batch_size
+                model.global_step.assign(tf.constant(global_step))
+                restored_epochs = global_step // (data_size // batch_size)
+                for epoch in range(restored_epochs, config.epochs):
+                    for x_tr, y_tr in di.iterate():
+                        # training
+                        _, big_cat_loss, sub_cat_loss, big_cat_acc, sub_cat_acc, score = \
+                            s.run([model.train_op,
+                                   model.p_big_cat_loss, model.p_sub_cat_loss,
+                                   model.acc_big_cat, model.acc_sub_cat,
+                                   model.score,
+                                   ],
+                                  feed_dict={
+                                      model.x_sent: x_tr[0],
+                                      model.x_title: x_tr[1],
+                                      model.y_big: y_tr[0],
+                                      model.y_sub: y_tr[1],
+                                      model.do_rate: config.drop_out,
+                                  })
+
+                        if global_step and global_step % config.logging_step == 0:
+                            # validation
+                            valid_big_cat_loss, valid_sub_cat_loss = 0., 0.
+                            valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
+                            valid_score = 0.
+
+                            valid_iter = x_sent_va.shape[0] // batch_size
+                            for i in tqdm(range(0, valid_iter)):
+                                v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score = s.run([
+                                    model.p_big_cat_loss, model.p_sub_cat_loss,
+                                    model.acc_big_cat, model.acc_sub_cat,
+                                    model.score
+                                ],
+                                    feed_dict={
+                                        model.x_sent: x_sent_va[batch_size * i:batch_size * (i + 1)],
+                                        model.x_title: x_title_va[batch_size * i:batch_size * (i + 1)],
+                                        model.y_big: y_big_va[batch_size * i:batch_size * (i + 1)],
+                                        model.y_sub: y_sub_va[batch_size * i:batch_size * (i + 1)],
+                                        model.do_rate: .0,
+                                    })
+
+                                valid_big_cat_loss += v_bc_loss
+                                valid_sub_cat_loss += v_sc_loss
+                                valid_big_cat_acc += v_bc_acc
+                                valid_sub_cat_acc += v_sc_acc
+                                valid_score += v_score
+
+                            valid_big_cat_loss /= valid_iter
+                            valid_sub_cat_loss /= valid_iter
+                            valid_big_cat_acc /= valid_iter
+                            valid_sub_cat_acc /= valid_iter
+                            valid_score /= valid_iter
+
+                            print("[*] epoch %03d global step %07d \n" % (epoch, global_step),
+                                  "  [*] Big Category\n"
+                                  "\ttrain_loss : {:.4f} train_acc : {:.4f}\n\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".
+                                  format(big_cat_loss, big_cat_acc, valid_big_cat_loss, valid_big_cat_acc),
+                                  "  [*] Sub Category\n"
+                                  "\ttrain_loss : {:.4f} train_acc : {:.4f}\n\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".
+                                  format(sub_cat_loss, sub_cat_acc, valid_sub_cat_loss, valid_sub_cat_acc),
+                                  "  [*] Score\n"
+                                  "\ttrain_score : {:.8f} valid_score : {:.8f}".format(score, valid_score)
+                                  )
+
+                            # summary
+                            summary = s.run(model.merged,
+                                            feed_dict={
+                                                model.x_sent: x_sent_va[:batch_size],
+                                                model.x_title: x_title_va[:batch_size],
+                                                model.y_big: y_big_va[:batch_size],
+                                                model.y_sub: y_sub_va[:batch_size],
+                                                model.do_rate: .0,
+                                            })
+
+                            # Summary saver
+                            model.writer.add_summary(summary, global_step)
+
+                            # Model save
+                            model.saver.save(s,
+                                             config.pretrained + '%s.ckpt' % config.model,
+                                             global_step=global_step)
+
+                            if valid_score > best_score:
+                                print("[+] model improved {:.8f} to {:.8f}".format(best_score, valid_score))
+                                best_score = valid_score
+
+                                model.best_saver.save(s,
+                                                      config.pretrained + '%s-best_score.ckpt' % config.model,
+                                                      global_step=global_step)
+                            print()
+
+                        model.global_step.assign_add(tf.constant(1))
+                        global_step += 1
+
+                end_time = time.time()
+
+                print("[+] Training Done! Elapsed {:.8f}s".format(end_time - start_time))
+            else:  # test
+                # validation
+                valid_big_cats, valid_sub_cats = list(), list()
+
+                valid_big_cat_loss, valid_sub_cat_loss = 0., 0.
+                valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
+                valid_score = 0.
+
+                batch_size = config.batch_size
+                valid_iter = x_sent_va.shape[0] // batch_size
+                for i in tqdm(range(0, valid_iter)):
+                    v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score, v_pred_big_cat, v_pred_sub_cat = s.run([
+                        model.p_big_cat_loss, model.p_sub_cat_loss,
+                        model.acc_big_cat, model.acc_sub_cat,
+                        model.score,
+                        model.pred_big_cat, model.pred_sub_cat,
+                    ],
+                        feed_dict={
+                            model.x_sent: x_sent_va[batch_size * i:batch_size * (i + 1)],
+                            model.x_title: x_title_va[batch_size * i:batch_size * (i + 1)],
+                            model.y_big: y_big_va[batch_size * i:batch_size * (i + 1)],
+                            model.y_sub: y_sub_va[batch_size * i:batch_size * (i + 1)],
+                            model.do_rate: .0,
+                        })
+
+                    valid_big_cat_loss += v_bc_loss
+                    valid_sub_cat_loss += v_sc_loss
+                    valid_big_cat_acc += v_bc_acc
+                    valid_sub_cat_acc += v_sc_acc
+                    valid_score += v_score
+
+                    valid_big_cats.extend(np.argmax(v_pred_big_cat, 1))
+                    valid_sub_cats.extend(np.argmax(v_pred_sub_cat, 1))
+
+                valid_big_cat_loss /= valid_iter
+                valid_sub_cat_loss /= valid_iter
+                valid_big_cat_acc /= valid_iter
+                valid_sub_cat_acc /= valid_iter
+                valid_score /= valid_iter
+
+                print("[*] Global step %07d \n" % global_step,
+                      "  [*] Big Category\n"
+                      "\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".format(valid_big_cat_loss, valid_big_cat_acc),
+                      "  [*] Sub Category\n"
+                      "\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".format(valid_sub_cat_loss, valid_sub_cat_acc),
+                      "  [*] Score\n"
+                      "\tvalid_score : {:.8f}".format(valid_score)
+                      )
+
+                # confusion matrix
+
+                # big category
+                # valid_big_cats = np.array(valid_big_cats)
+                # data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True,
+                #                       filename="confusion_matrix_big_cate.png")
+
+                # sub category
+                valid_sub_cats = np.array(valid_sub_cats)
+                data_confusion_matrix(valid_sub_cats, y_sub_va, labels=sub_cate, normalize=True,
+                                      filename="confusion_matrix_sub_cate.png")
+    else:
+        x_sent_data = np.zeros((1, config.sequence_length),
+                               dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
+        x_title_data = np.zeros((1, config.title_length),
+                                dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
+
         if config.use_pre_trained_embeds == 'c2v':
-            sentence = ' '.join(ds.sentences[i]).strip('\n')
-            title = ' '.join(ds.titles[i]).strip('\n')
+            sentence = orig_content.strip('\n')
+            title = orig_title.strip('\n')
         else:
-            sentence = ds.sentences[i][:config.sequence_length]
-            title = ds.titles[i][:config.title_length]
-
-        sentence_length = len(sentence)
-        if sentence_length < min_length[0]:
-            min_length[0] = sentence_length
-        if sentence_length > max_length[0]:
-            max_length[0] = sentence_length
-
-        title_length = len(title)
-        if title_length < min_length[1]:
-            min_length[1] = title_length
-        if title_length > max_length[1]:
-            max_length[1] = title_length
-
-        sen_len.append(sentence_length)
-        title_len.append(title_length)
+            sentence = orig_content[:config.sequence_length]
+            title = orig_title[:config.title_length]
 
         if config.use_pre_trained_embeds == 'c2v':
             sent = vectors.decompose_str_as_one_hot(sentence, warning=False)[:config.sequence_length]
@@ -285,264 +575,82 @@ if __name__ == '__main__':
             sent = vectors.words_to_index(sentence)
             title = vectors.words_to_index(title)
 
-        x_sent_data[i] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
-        x_title_data[i] = np.pad(title, (0, config.title_length - len(title)), 'constant', constant_values=0)
+        x_sent_data[0] = np.pad(sent, (0, config.sequence_length - len(sent)), 'constant', constant_values=0)
+        x_title_data[0] = np.pad(title, (0, config.title_length - len(title)), 'constant', constant_values=0)
 
-    if config.verbose:
-        print("[*] Total %d samples (training)" % x_sent_data.shape[0])
-        print("  [*] Article")
-        print("  [*] min length : %d" % min_length[0])
-        print("  [*] max length : %d" % max_length[0])
-        print("  [*] avg length : %.2f" % (sum(sen_len) / float(x_sent_data.shape[0])))
-
-        print("  [*] Title")
-        print("  [*] min length : %d" % min_length[1])
-        print("  [*] max length : %d" % max_length[1])
-        print("  [*] avg length : %.2f" % (sum(title_len) / float(x_title_data.shape[0])))
-
-    # one-hot-encoded
-    y_big_data, y_sub_data = label_convert(ds.big_labels, ds.sub_labels, x_sent_data.shape[0])
-
-    # data distribution
-    data_visualization(y_big_data, y_sub_data)
-
-    ds = None
-
-    if config.verbose:
-        print("[*] sentence to %s index conversion finish!" % config.use_pre_trained_embeds)
-
-    # train/test split
-    x_sent_tr, x_sent_va, x_title_tr, x_title_va, y_big_tr, y_big_va, y_sub_tr, y_sub_va = \
-        data_split(x_sent_data, x_title_data, y_big_data, y_sub_data, config.test_size)
-
-    if config.verbose:
-        print("[*] train/test %d/%d(%.2f/%.2f) split!" % (len(x_sent_tr), len(x_sent_va),
-                                                          1. - config.test_size, config.test_size))
-
-    data_size = x_sent_data.shape[0]
-
-    # DataSet Iterator
-    di = DataIterator(x=[x_sent_tr, x_title_tr], y=[y_big_tr, y_sub_tr], batch_size=config.batch_size)
-
-    if config.device == 'gpu':
-        dev_config = tf.ConfigProto()
-        dev_config.gpu_options.allow_growth = True
-    else:
-        dev_config = None
-
-    with tf.Session(config=dev_config) as s:
-        if config.model == 'charcnn':
-            # Model Loaded
-            model = TextCNN(s=s,
-                            mode=config.mode,
-                            w2v_embeds=vectors.embeds if not embed_type == 'c2v' else None,
-                            n_big_classes=config.n_big_classes,
-                            n_sub_classes=config.n_sub_classes,
-                            optimizer=config.optimizer,
-                            kernel_sizes=config.kernel_size,
-                            n_filters=config.filter_size,
-                            n_dims=config.embed_size,
-                            vocab_size=config.character_size if embed_type == 'c2v' else config.vocab_size + 1,
-                            sequence_length=config.sequence_length,
-                            title_length=config.title_length,
-                            lr=config.lr,
-                            lr_decay=config.lr_decay,
-                            lr_lower_boundary=config.lr_lower_boundary,
-                            fc_unit=config.fc_unit,
-                            th=config.act_threshold,
-                            grad_clip=config.grad_clip,
-                            summary=config.pretrained,
-                            score_function=config.score_function,
-                            use_se_module=config.use_se_module,
-                            se_radio=config.se_ratio,
-                            se_type=config.se_type,
-                            use_multi_channel=config.use_multi_channel,
-                            use_spatial_dropout=config.use_spatial_dropout)
+        if config.device == 'gpu':
+            dev_config = tf.ConfigProto()
+            dev_config.gpu_options.allow_growth = True
         else:
-            raise NotImplementedError("[-] Not Supported!")
+            dev_config = None
 
-        if config.verbose:
-            print("[+] %s model loaded" % config.model)
-
-        # Initializing
-        s.run(tf.global_variables_initializer())
-
-        # exporting config
-        export_config()
-
-        # loading checkpoint
-        global_step = 0
-        if checkpoint:
-            print("[*] Reading checkpoints...")
-
-            ckpt = tf.train.get_checkpoint_state(config.pretrained)
-            if ckpt and ckpt.model_checkpoint_path:
-                # Restores from checkpoint
-                model.saver.restore(s, ckpt.model_checkpoint_path)
-
-                global_step = int(ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1])
-                print("[+] global step : %d" % global_step, " successfully loaded")
+        with tf.Session(config=dev_config) as s:
+            if config.model == 'charcnn':
+                # Model Loaded
+                model = TextCNN(s=s,
+                                mode=config.mode,
+                                w2v_embeds=vectors.embeds if not embed_type == 'c2v' else None,
+                                n_big_classes=config.n_big_classes,
+                                n_sub_classes=config.n_sub_classes,
+                                optimizer=config.optimizer,
+                                kernel_sizes=config.kernel_size,
+                                n_filters=config.filter_size,
+                                n_dims=config.embed_size,
+                                vocab_size=config.character_size if embed_type == 'c2v' else config.vocab_size + 1,
+                                sequence_length=config.sequence_length,
+                                title_length=config.title_length,
+                                lr=config.lr,
+                                lr_decay=config.lr_decay,
+                                lr_lower_boundary=config.lr_lower_boundary,
+                                fc_unit=config.fc_unit,
+                                th=config.act_threshold,
+                                grad_clip=config.grad_clip,
+                                summary=config.pretrained,
+                                score_function=config.score_function,
+                                use_se_module=config.use_se_module,
+                                se_radio=config.se_ratio,
+                                se_type=config.se_type,
+                                use_multi_channel=config.use_multi_channel,
+                                use_spatial_dropout=config.use_spatial_dropout)
             else:
-                print('[-] No checkpoint file found')
+                raise NotImplementedError("[-] Not Supported!")
 
-        start_time = time.time()
+            if config.verbose:
+                print("[+] %s model loaded" % config.model)
 
-        if config.is_train:
-            best_score = 0  # initial value
-            batch_size = config.batch_size
-            model.global_step.assign(tf.constant(global_step))
-            restored_epochs = global_step // (data_size // batch_size)
-            for epoch in range(restored_epochs, config.epochs):
-                for x_tr, y_tr in di.iterate():
-                    # training
-                    _, big_cat_loss, sub_cat_loss, big_cat_acc, sub_cat_acc, score = \
-                        s.run([model.train_op,
-                               model.p_big_cat_loss, model.p_sub_cat_loss,
-                               model.acc_big_cat, model.acc_sub_cat,
-                               model.score,
-                               ],
-                              feed_dict={
-                                  model.x_sent: x_tr[0],
-                                  model.x_title: x_tr[1],
-                                  model.y_big: y_tr[0],
-                                  model.y_sub: y_tr[1],
-                                  model.do_rate: config.drop_out,
-                              })
+            # Initializing
+            s.run(tf.global_variables_initializer())
 
-                    if global_step and global_step % config.logging_step == 0:
-                        # validation
-                        valid_big_cat_loss, valid_sub_cat_loss = 0., 0.
-                        valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
-                        valid_score = 0.
+            # exporting config
+            export_config()
 
-                        valid_iter = x_sent_va.shape[0] // batch_size
-                        for i in tqdm(range(0, valid_iter)):
-                            v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score = s.run([
-                                model.p_big_cat_loss, model.p_sub_cat_loss,
-                                model.acc_big_cat, model.acc_sub_cat,
-                                model.score
-                            ],
-                                feed_dict={
-                                    model.x_sent: x_sent_va[batch_size * i:batch_size * (i + 1)],
-                                    model.x_title: x_title_va[batch_size * i:batch_size * (i + 1)],
-                                    model.y_big: y_big_va[batch_size * i:batch_size * (i + 1)],
-                                    model.y_sub: y_sub_va[batch_size * i:batch_size * (i + 1)],
-                                    model.do_rate: .0,
-                                })
+            # loading checkpoint
+            global_step = 0
+            if checkpoint:
+                print("[*] Reading checkpoints...")
 
-                            valid_big_cat_loss += v_bc_loss
-                            valid_sub_cat_loss += v_sc_loss
-                            valid_big_cat_acc += v_bc_acc
-                            valid_sub_cat_acc += v_sc_acc
-                            valid_score += v_score
+                ckpt = tf.train.get_checkpoint_state(config.pretrained)
+                if ckpt and ckpt.model_checkpoint_path:
+                    # Restores from checkpoint
+                    model.saver.restore(s, ckpt.model_checkpoint_path)
 
-                        valid_big_cat_loss /= valid_iter
-                        valid_sub_cat_loss /= valid_iter
-                        valid_big_cat_acc /= valid_iter
-                        valid_sub_cat_acc /= valid_iter
-                        valid_score /= valid_iter
+                    global_step = int(ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1])
+                    print("[+] global step : %d" % global_step, " successfully loaded")
+                else:
+                    raise FileNotFoundError('[-] No checkpoint file found')
 
-                        print("[*] epoch %03d global step %07d \n" % (epoch, global_step),
-                              "  [*] Big Category\n"
-                              "\ttrain_loss : {:.4f} train_acc : {:.4f}\n\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".
-                              format(big_cat_loss, big_cat_acc, valid_big_cat_loss, valid_big_cat_acc),
-                              "  [*] Sub Category\n"
-                              "\ttrain_loss : {:.4f} train_acc : {:.4f}\n\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".
-                              format(sub_cat_loss, sub_cat_acc, valid_sub_cat_loss, valid_sub_cat_acc),
-                              "  [*] Score\n"
-                              "\ttrain_score : {:.8f} valid_score : {:.8f}".format(score, valid_score)
-                              )
+                pred_big_cat, pred_sub_cat = s.run([model.pred_big_cat, model.pred_sub_cat],
+                                                   feed_dict={
+                                                       model.x_sent: x_sent_data,
+                                                       model.x_title: x_title_data,
+                                                       model.do_rate: .0,
+                                                   })
 
-                        # summary
-                        summary = s.run(model.merged,
-                                        feed_dict={
-                                            model.x_sent: x_sent_va[:batch_size],
-                                            model.x_title: x_title_va[:batch_size],
-                                            model.y_big: y_big_va[:batch_size],
-                                            model.y_sub: y_sub_va[:batch_size],
-                                            model.do_rate: .0,
-                                        })
+                pred_big_cat = np.argmax(pred_big_cat, 1)
+                pred_sub_cat = np.argmax(pred_sub_cat, 1)
 
-                        # Summary saver
-                        model.writer.add_summary(summary, global_step)
-
-                        # Model save
-                        model.saver.save(s,
-                                         config.pretrained + '%s.ckpt' % config.model,
-                                         global_step=global_step)
-
-                        if valid_score > best_score:
-                            print("[+] model improved {:.8f} to {:.8f}".format(best_score, valid_score))
-                            best_score = valid_score
-
-                            model.best_saver.save(s,
-                                                  config.pretrained + '%s-best_score.ckpt' % config.model,
-                                                  global_step=global_step)
-                        print()
-
-                    model.global_step.assign_add(tf.constant(1))
-                    global_step += 1
-
-            end_time = time.time()
-
-            print("[+] Training Done! Elapsed {:.8f}s".format(end_time - start_time))
-        else:  # test
-            # validation
-            valid_big_cats, valid_sub_cats = list(), list()
-
-            valid_big_cat_loss, valid_sub_cat_loss = 0., 0.
-            valid_big_cat_acc, valid_sub_cat_acc = 0., 0.
-            valid_score = 0.
-
-            batch_size = config.batch_size
-            valid_iter = x_sent_va.shape[0] // batch_size
-            for i in tqdm(range(0, valid_iter)):
-                v_bc_loss, v_sc_loss, v_bc_acc, v_sc_acc, v_score, v_pred_big_cat, v_pred_sub_cat = s.run([
-                    model.p_big_cat_loss, model.p_sub_cat_loss,
-                    model.acc_big_cat, model.acc_sub_cat,
-                    model.score,
-                    model.pred_big_cat, model.pred_sub_cat,
-                ],
-                    feed_dict={
-                        model.x_sent: x_sent_va[batch_size * i:batch_size * (i + 1)],
-                        model.x_title: x_title_va[batch_size * i:batch_size * (i + 1)],
-                        model.y_big: y_big_va[batch_size * i:batch_size * (i + 1)],
-                        model.y_sub: y_sub_va[batch_size * i:batch_size * (i + 1)],
-                        model.do_rate: .0,
-                    })
-
-                valid_big_cat_loss += v_bc_loss
-                valid_sub_cat_loss += v_sc_loss
-                valid_big_cat_acc += v_bc_acc
-                valid_sub_cat_acc += v_sc_acc
-                valid_score += v_score
-
-                valid_big_cats.extend(np.argmax(v_pred_big_cat, 1))
-                valid_sub_cats.extend(np.argmax(v_pred_sub_cat, 1))
-
-            valid_big_cat_loss /= valid_iter
-            valid_sub_cat_loss /= valid_iter
-            valid_big_cat_acc /= valid_iter
-            valid_sub_cat_acc /= valid_iter
-            valid_score /= valid_iter
-
-            print("[*] Global step %07d \n" % global_step,
-                  "  [*] Big Category\n"
-                  "\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".format(valid_big_cat_loss, valid_big_cat_acc),
-                  "  [*] Sub Category\n"
-                  "\tvalid_loss : {:.4f} valid_acc : {:.4f}\n".format(valid_sub_cat_loss, valid_sub_cat_acc),
-                  "  [*] Score\n"
-                  "\tvalid_score : {:.8f}".format(valid_score)
-                  )
-
-            # confusion matrix
-
-            # big category
-            valid_big_cats = np.array(valid_big_cats)
-            data_confusion_matrix(valid_big_cats, y_big_va, labels=big_cate, normalize=True,
-                                  filename="confusion_matrix_big_cate.png")
-
-            # sub category
-            valid_sub_cats = np.array(valid_sub_cats)
-            data_confusion_matrix(valid_sub_cats, y_sub_va, labels=sub_cate, normalize=True,
-                                  filename="confusion_matrix_sub_cate.png")
+                print("[*] Prediction")
+                print("  [*] title        : %s" % orig_title)
+                print("  [*] content      : %s" % orig_content)
+                print("  [*] big category : %s" % big_cate[int(pred_big_cat)])
+                print("  [*] sub category : %s" % sub_cate[int(pred_sub_cat)])
