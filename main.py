@@ -128,7 +128,8 @@ def data_visualization(y_big, y_sub):
     print(label_sub_cnt)
 
 
-def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="confusion_matrix.png"):
+def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="confusion_matrix.png",
+                          fig_size=None):
     import itertools
     import matplotlib.pyplot as plt
     from sklearn.metrics import confusion_matrix
@@ -143,7 +144,10 @@ def data_confusion_matrix(y_pred, y_true, labels, normalize=True, filename="conf
     if normalize:
         cnf_mat = cnf_mat.astype('float') / (cnf_mat.sum(axis=1)[:, np.newaxis] + 1e-6)
 
-    plt.figure()
+    if fig_size:
+        plt.figure(figsize=fig_size)
+    else:
+        plt.figure()
 
     plt.imshow(cnf_mat, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title("Confusion Matrix")
@@ -553,7 +557,7 @@ if __name__ == '__main__':
                 # sub category
                 valid_sub_cats = np.array(valid_sub_cats)
                 data_confusion_matrix(valid_sub_cats, y_sub_va, labels=sub_cate, normalize=True,
-                                      filename="confusion_matrix_sub_cate.png")
+                                      filename="confusion_matrix_sub_cate.png", fig_size=(50, 50))
     else:
         x_sent_data = np.zeros((1, config.sequence_length),
                                dtype=np.uint8 if config.use_pre_trained_embeds == 'c2v' else np.uint32)
